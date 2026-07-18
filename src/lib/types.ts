@@ -1,5 +1,7 @@
 export type PartStatus = "In Production" | "Quoting" | "Complete" | "On Hold";
 
+export type TimeUnit = "minutes" | "seconds";
+
 export type CustomField = {
   id: string;
   label: string;
@@ -22,8 +24,10 @@ export type ProcessVersion = {
   versionNumber: number;
   status: "draft" | "current" | "archived";
   mhr: number;
-  timeEstimatedMin: number;
-  timeActualMin: number;
+  /** Unit for estimated & actual time on this version. */
+  timeUnit: TimeUnit;
+  timeEstimated: number;
+  timeActual: number;
   customFields: CustomField[];
   files: Attachment[];
   publishedAt?: string;

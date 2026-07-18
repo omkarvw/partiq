@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Copy, Download, Maximize2, Upload } from "lucide-react";
 import { getCurrentVersion, getProcess } from "@/lib/data";
-import { calcCost, formatInr, variancePct } from "@/lib/costing";
+import { calcCost, formatInr, formatTime, variancePct } from "@/lib/costing";
 import { Button, VarianceChip } from "@/components/ui/Primitives";
 
 export default function ProgramViewerPage() {
@@ -34,8 +34,8 @@ export default function ProgramViewerPage() {
 
   const { part, process } = found;
   const current = processCurrent;
-  const estCost = calcCost(current.mhr, current.timeEstimatedMin);
-  const actCost = calcCost(current.mhr, current.timeActualMin);
+  const estCost = calcCost(current.mhr, current.timeEstimated, current.timeUnit);
+  const actCost = calcCost(current.mhr, current.timeActual, current.timeUnit);
 
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col p-6">
@@ -82,14 +82,14 @@ export default function ProgramViewerPage() {
             </h3>
             <dl className="space-y-3">
               <Row label="MHR (Rate)" value={`${formatInr(current.mhr)}/hr`} />
-              <Row label="Est Time" value={`${current.timeEstimatedMin}m`} />
-              <Row label="Act Time" value={`${current.timeActualMin}m`} />
+              <Row label="Est Time" value={formatTime(current.timeEstimated, current.timeUnit)} />
+              <Row label="Act Time" value={formatTime(current.timeActual, current.timeUnit)} />
               <Row label="Est Cost" value={formatInr(estCost)} />
               <Row label="Act Cost" value={formatInr(actCost)} />
               <div className="flex items-center justify-between border-t border-outline-variant/30 pt-3">
                 <span className="text-body-sm text-on-surface-variant">Variance</span>
                 <VarianceChip
-                  pct={variancePct(current.timeEstimatedMin, current.timeActualMin)}
+                  pct={variancePct(current.timeEstimated, current.timeActual)}
                 />
               </div>
             </dl>

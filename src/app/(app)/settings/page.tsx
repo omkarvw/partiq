@@ -11,8 +11,11 @@ export default function SettingsPage() {
         <div className="space-y-3 p-4">
           <Row label="Currency" value="INR (₹)" />
           <Row label="MHR unit" value="Currency per hour" />
-          <Row label="Time unit" value="Minutes" />
-          <Row label="Cost formula" value="MHR × (minutes ÷ 60)" />
+          <Row label="Time units" value="Minutes or seconds (per process version)" />
+          <Row
+            label="Cost formula"
+            value="MHR × (minutes ÷ 60)  or  MHR × (seconds ÷ 3600)"
+          />
         </div>
       </Panel>
     </div>

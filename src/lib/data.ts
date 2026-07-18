@@ -1,4 +1,5 @@
 import type { AuditEvent, DashboardSignal, Part } from "./types";
+import { calcCost, toSeconds } from "./costing";
 
 const GCODE_O3060 = `O3060
 
@@ -87,8 +88,9 @@ export const parts: Part[] = [
             versionNumber: 1,
             status: "archived",
             mhr: 1100,
-            timeEstimatedMin: 50,
-            timeActualMin: 48,
+            timeUnit: "minutes",
+            timeEstimated: 50,
+            timeActual: 48,
             customFields: [
               { id: "cf0", label: "Tooling Type", value: "HSS Rough Mill" },
             ],
@@ -111,8 +113,9 @@ export const parts: Part[] = [
             versionNumber: 2,
             status: "current",
             mhr: 1250,
-            timeEstimatedMin: 45,
-            timeActualMin: 52,
+            timeUnit: "minutes",
+            timeEstimated: 45,
+            timeActual: 52,
             customFields: [
               { id: "cf1", label: "Tooling Type", value: "Carbide End Mill" },
               { id: "cf2", label: "Coolant", value: "Synthetic Emulsion" },
@@ -158,8 +161,9 @@ export const parts: Part[] = [
             versionNumber: 3,
             status: "draft",
             mhr: 1250,
-            timeEstimatedMin: 42,
-            timeActualMin: 0,
+            timeUnit: "minutes",
+            timeEstimated: 42,
+            timeActual: 0,
             customFields: [
               { id: "cf1", label: "Tooling Type", value: "Carbide End Mill" },
               { id: "cf2", label: "Coolant", value: "Synthetic Emulsion" },
@@ -180,8 +184,9 @@ export const parts: Part[] = [
             versionNumber: 1,
             status: "current",
             mhr: 1400,
-            timeEstimatedMin: 135,
-            timeActualMin: 135,
+            timeUnit: "minutes",
+            timeEstimated: 135,
+            timeActual: 135,
             customFields: [
               { id: "c1", label: "Tolerance", value: "±0.01 mm" },
             ],
@@ -223,8 +228,9 @@ export const parts: Part[] = [
             versionNumber: 1,
             status: "current",
             mhr: 950,
-            timeEstimatedMin: 30,
-            timeActualMin: 45,
+            timeUnit: "seconds",
+            timeEstimated: 1800,
+            timeActual: 2700,
             customFields: [{ id: "v1", label: "Tap Size", value: "M6 / M8" }],
             files: [],
             publishedAt: "2026-07-14 11:00",
@@ -255,8 +261,9 @@ export const parts: Part[] = [
             versionNumber: 1,
             status: "current",
             mhr: 800,
-            timeEstimatedMin: 22,
-            timeActualMin: 28,
+            timeUnit: "minutes",
+            timeEstimated: 22,
+            timeActual: 28,
             customFields: [],
             files: [],
             publishedAt: "2026-07-16 10:00",
@@ -287,8 +294,9 @@ export const parts: Part[] = [
             versionNumber: 1,
             status: "current",
             mhr: 1000,
-            timeEstimatedMin: 12,
-            timeActualMin: 11,
+            timeUnit: "minutes",
+            timeEstimated: 12,
+            timeActual: 11,
             customFields: [],
             files: [],
             publishedAt: "2026-07-08 08:00",
@@ -388,7 +396,8 @@ export const dashboardSignals: DashboardSignal[] = [
   },
 ];
 
-export const weeklyTrend = [
+/** Plant-wide aggregate weekly Est/Act cost (all parts). */
+export const plantWeeklyTrend = [
   { week: "W23", estimated: 9200, actual: 9800 },
   { week: "W24", estimated: 8800, actual: 9100 },
   { week: "W25", estimated: 10200, actual: 11100 },
@@ -397,9 +406,96 @@ export const weeklyTrend = [
   { week: "W28", estimated: 9900, actual: 10620 },
 ];
 
+/** Dummy weekly Est/Act cost trend keyed by part id */
+export const partWeeklyTrends: Record<
+  string,
+  { week: string; estimated: number; actual: number }[]
+> = {
+  "part-mid-3060": [
+    { week: "W23", estimated: 4800, actual: 5100 },
+    { week: "W24", estimated: 4650, actual: 4900 },
+    { week: "W25", estimated: 5200, actual: 5750 },
+    { week: "W26", estimated: 5050, actual: 5480 },
+    { week: "W27", estimated: 5400, actual: 6100 },
+    { week: "W28", estimated: 5056, actual: 5503 },
+  ],
+  "part-brk-118": [
+    { week: "W23", estimated: 280, actual: 310 },
+    { week: "W24", estimated: 290, actual: 340 },
+    { week: "W25", estimated: 300, actual: 380 },
+    { week: "W26", estimated: 295, actual: 360 },
+    { week: "W27", estimated: 310, actual: 395 },
+    { week: "W28", estimated: 293, actual: 373 },
+  ],
+  "part-shp-441": [
+    { week: "W23", estimated: 190, actual: 185 },
+    { week: "W24", estimated: 200, actual: 195 },
+    { week: "W25", estimated: 210, actual: 200 },
+    { week: "W26", estimated: 195, actual: 190 },
+    { week: "W27", estimated: 205, actual: 198 },
+    { week: "W28", estimated: 200, actual: 183 },
+  ],
+};
+
 export function getPart(partId: string): Part | undefined {
   return parts.find((p) => p.id === partId);
 }
+
+/**
+ * Cost trend across versions of one process (or all processes if processId omitted).
+ * Points ordered by version number for line charts.
+ */
+export function getProcessVersionCostTrend(partId: string, processId?: string) {
+  const part = getPart(partId);
+  if (!part) return [];
+
+  const processes = processId
+    ? part.processes.filter((p) => p.id === processId)
+    : part.processes;
+
+  return processes.flatMap((proc) =>
+    [...proc.versions]
+      .sort((a, b) => a.versionNumber - b.versionNumber)
+      .map((v) => {
+        const est = calcCost(v.mhr, v.timeEstimated, v.timeUnit);
+        const act =
+          v.timeActual > 0 ? calcCost(v.mhr, v.timeActual, v.timeUnit) : null;
+        return {
+          key: `v${v.versionNumber}`,
+          label: `v${v.versionNumber}`,
+          processId: proc.id,
+          processName: proc.name.split(" - ")[0],
+          versionNumber: v.versionNumber,
+          status: v.status,
+          estimated: Math.round(est * 100) / 100,
+          actual: act === null ? null : Math.round(act * 100) / 100,
+        };
+      }),
+  );
+}
+
+export function getPartSignals(partCode: string) {
+  return dashboardSignals.filter((s) => s.partCode === partCode);
+}
+
+/** Totals: costs in currency; times aggregated as seconds for mixed units. */
+export function getPlantTotals() {
+  let estCost = 0;
+  let actCost = 0;
+  let estTimeSec = 0;
+  let actTimeSec = 0;
+  parts.forEach((part) => {
+    part.processes.forEach((proc) => {
+      const v = getCurrentVersion(proc);
+      estCost += calcCost(v.mhr, v.timeEstimated, v.timeUnit);
+      actCost += calcCost(v.mhr, v.timeActual, v.timeUnit);
+      estTimeSec += toSeconds(v.timeEstimated, v.timeUnit);
+      actTimeSec += toSeconds(v.timeActual, v.timeUnit);
+    });
+  });
+  return { estCost, actCost, estTimeSec, actTimeSec };
+}
+
 
 export function getProcess(partId: string, processId: string) {
   const part = getPart(partId);

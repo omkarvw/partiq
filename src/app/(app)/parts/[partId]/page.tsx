@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileText, FolderOpen, Plus } from "lucide-react";
 import { getCurrentVersion, getPart } from "@/lib/data";
-import { calcCost, formatInr, formatMinutes, variancePct } from "@/lib/costing";
+import { calcCost, formatDurationSeconds, formatInr, formatTime, toSeconds, variancePct } from "@/lib/costing";
 import {
   Breadcrumbs,
   Button,
@@ -20,12 +20,12 @@ export default async function PartDetailPage({
   const part = getPart(partId);
   if (!part) notFound();
 
-  let estTotal = 0;
-  let actTotal = 0;
+  let estTotalSec = 0;
+  let actTotalSec = 0;
   part.processes.forEach((p) => {
     const v = getCurrentVersion(p);
-    estTotal += v.timeEstimatedMin;
-    actTotal += v.timeActualMin;
+    estTotalSec += toSeconds(v.timeEstimated, v.timeUnit);
+    actTotalSec += toSeconds(v.timeActual, v.timeUnit);
   });
 
   return (
@@ -57,13 +57,13 @@ export default async function PartDetailPage({
                 <span>
                   Est. Total:{" "}
                   <span className="ml-1 font-mono text-code-sm text-on-surface">
-                    {formatMinutes(estTotal)}
+                    {formatDurationSeconds(estTotalSec)}
                   </span>
                 </span>
                 <span>
                   Act. Total:{" "}
                   <span className="ml-1 font-mono text-code-sm text-on-surface">
-                    {formatMinutes(actTotal)}
+                    {formatDurationSeconds(actTotalSec)}
                   </span>
                 </span>
               </div>
@@ -82,7 +82,7 @@ export default async function PartDetailPage({
                 <div className="absolute bottom-0 left-[39px] top-0 w-0.5 bg-outline-variant/30" />
                 {part.processes.map((proc) => {
                   const v = getCurrentVersion(proc);
-                  const timeVar = variancePct(v.timeEstimatedMin, v.timeActualMin);
+                  const timeVar = variancePct(v.timeEstimated, v.timeActual);
                   return (
                     <Link
                       key={proc.id}
@@ -102,20 +102,21 @@ export default async function PartDetailPage({
                           </p>
                           <p className="mt-2 font-mono text-code-sm text-on-surface-variant">
                             v{proc.currentVersion} current · MHR {formatInr(v.mhr)}/hr · Cost{" "}
-                            {formatInr(calcCost(v.mhr, v.timeActualMin))}
+                            {formatInr(calcCost(v.mhr, v.timeActual, v.timeUnit))} · unit{" "}
+                            {v.timeUnit}
                           </p>
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           <div className="flex items-center gap-2">
                             <span className="label-caps w-8 text-right text-secondary">EST</span>
                             <span className="rounded bg-surface-container px-2 py-1 font-mono text-code-md">
-                              {formatMinutes(v.timeEstimatedMin)}
+                              {formatTime(v.timeEstimated, v.timeUnit)}
                             </span>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="label-caps w-8 text-right text-secondary">ACT</span>
                             <span className="rounded bg-primary/10 px-2 py-1 font-mono text-code-md text-primary">
-                              {formatMinutes(v.timeActualMin)}
+                              {formatTime(v.timeActual, v.timeUnit)}
                             </span>
                           </div>
                           <VarianceChip pct={timeVar} />

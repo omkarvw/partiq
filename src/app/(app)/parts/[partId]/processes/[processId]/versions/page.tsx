@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProcess } from "@/lib/data";
-import { calcCost, formatInr } from "@/lib/costing";
+import { calcCost, formatInr, formatTime } from "@/lib/costing";
 import { Breadcrumbs, Button, Panel } from "@/components/ui/Primitives";
 
 export default async function VersionHistoryPage({
@@ -67,9 +67,16 @@ export default async function VersionHistoryPage({
                     : "Draft — not published"}
                 </p>
                 <p className="mt-2 font-mono text-code-sm text-on-surface">
-                  MHR {formatInr(v.mhr)}/hr · Est {v.timeEstimatedMin}m · Act{" "}
-                  {v.timeActualMin || "—"}m · Cost{" "}
-                  {formatInr(calcCost(v.mhr, v.timeActualMin || v.timeEstimatedMin))}
+                  MHR {formatInr(v.mhr)}/hr · Est {formatTime(v.timeEstimated, v.timeUnit)} · Act{" "}
+                  {v.timeActual ? formatTime(v.timeActual, v.timeUnit) : "—"} · Cost{" "}
+                  {formatInr(
+                    calcCost(
+                      v.mhr,
+                      v.timeActual || v.timeEstimated,
+                      v.timeUnit,
+                    ),
+                  )}{" "}
+                  · {v.timeUnit}
                 </p>
                 <p className="mt-1 text-body-sm text-on-surface-variant">
                   Files:{" "}

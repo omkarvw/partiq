@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { History, Plus, Save, Trash2, Upload } from "lucide-react";
 import { getProcess } from "@/lib/data";
-import { calcCost, formatInr, variancePct } from "@/lib/costing";
-import type { CustomField } from "@/lib/types";
+import { calcCost, formatInr, timeUnitLabel, variancePct } from "@/lib/costing";
+import type { CustomField, TimeUnit } from "@/lib/types";
 import {
   Breadcrumbs,
   Button,
@@ -29,8 +29,9 @@ export default function ProcessEntryPage() {
 
   const [version, setVersion] = useState(found?.process.currentVersion ?? 1);
   const [mhr, setMhr] = useState(initial?.mhr ?? 0);
-  const [est, setEst] = useState(initial?.timeEstimatedMin ?? 0);
-  const [act, setAct] = useState(initial?.timeActualMin ?? 0);
+  const [timeUnit, setTimeUnit] = useState<TimeUnit>(initial?.timeUnit ?? "minutes");
+  const [est, setEst] = useState(initial?.timeEstimated ?? 0);
+  const [act, setAct] = useState(initial?.timeActual ?? 0);
   const [fields, setFields] = useState<CustomField[]>(initial?.customFields ?? []);
 
   if (!found || !initial) {
@@ -41,19 +42,29 @@ export default function ProcessEntryPage() {
   const selected =
     process.versions.find((v) => v.versionNumber === version) ?? initial;
 
-  const estCost = calcCost(mhr, est);
-  const actCost = calcCost(mhr, act);
+  const estCost = calcCost(mhr, est, timeUnit);
+  const actCost = calcCost(mhr, act, timeUnit);
   const costVar = variancePct(estCost, actCost);
   const timeVar = variancePct(est, act);
+  const unitShort = timeUnitLabel(timeUnit);
 
   function applyVersion(n: number) {
     const v = process.versions.find((x) => x.versionNumber === n);
     if (!v) return;
     setVersion(n);
     setMhr(v.mhr);
-    setEst(v.timeEstimatedMin);
-    setAct(v.timeActualMin);
+    setTimeUnit(v.timeUnit);
+    setEst(v.timeEstimated);
+    setAct(v.timeActual);
     setFields(v.customFields.map((f) => ({ ...f })));
+  }
+
+  function changeTimeUnit(next: TimeUnit) {
+    if (next === timeUnit) return;
+    const factor = next === "seconds" ? 60 : 1 / 60;
+    setEst((prev) => Math.round(prev * factor * 1000) / 1000);
+    setAct((prev) => Math.round(prev * factor * 1000) / 1000);
+    setTimeUnit(next);
   }
 
   return (
@@ -117,16 +128,33 @@ export default function ProcessEntryPage() {
                     value={mhr}
                     onChange={setMhr}
                   />
+                  <div className="flex items-center">
+                    <label className="label-caps w-36 shrink-0 pr-4 text-right text-on-surface-variant">
+                      Time unit
+                    </label>
+                    <select
+                      value={timeUnit}
+                      onChange={(e) => changeTimeUnit(e.target.value as TimeUnit)}
+                      className="flex-1 cursor-pointer rounded-sm border border-outline-variant bg-surface px-3 py-1.5 font-mono text-code-md focus:border-primary"
+                    >
+                      <option value="minutes">Minutes</option>
+                      <option value="seconds">Seconds</option>
+                    </select>
+                  </div>
                   <MetricInput
-                    label="Est. Time (min)"
+                    label={`Est. Time (${unitShort})`}
                     value={est}
                     onChange={setEst}
                   />
                   <MetricInput
-                    label="Act. Time (min)"
+                    label={`Act. Time (${unitShort})`}
                     value={act}
                     onChange={setAct}
                   />
+                  <p className="pl-36 text-[11px] text-on-surface-variant">
+                    Cost = MHR × time in hours (
+                    {timeUnit === "minutes" ? "÷ 60" : "÷ 3600"}).
+                  </p>
                 </div>
                 <div className="flex flex-col justify-center rounded border border-outline-variant bg-surface-low p-4">
                   <h4 className="label-caps mb-3 text-on-surface-variant">

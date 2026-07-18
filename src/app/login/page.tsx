@@ -10,8 +10,8 @@ export default function LoginPage() {
             <Factory className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-headline-sm font-bold">Part Management</p>
-            <p className="text-body-sm text-secondary-fixed-dim">Industrial Enterprise</p>
+            <p className="text-headline-sm font-bold">PartIq</p>
+            <p className="text-body-sm text-secondary-fixed-dim">Process · Cost · Signals</p>
           </div>
         </div>
         <div>

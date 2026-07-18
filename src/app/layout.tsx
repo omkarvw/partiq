@@ -15,8 +15,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Part Management",
-  description: "Manufacturing process, cycle time, and cost signals",
+  title: "PartIq",
+  description: "PartIq — manufacturing process, cycle time, and cost signals",
 };
 
 export default function RootLayout({

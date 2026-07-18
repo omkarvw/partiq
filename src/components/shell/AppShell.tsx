@@ -33,9 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div>
             <h1 className="text-headline-sm font-bold leading-tight text-on-primary">
-              Part Management
+              PartIq
             </h1>
-            <p className="text-[11px] text-secondary-fixed-dim">Industrial Enterprise</p>
+            <p className="text-[11px] text-secondary-fixed-dim">Process · Cost · Signals</p>
           </div>
         </div>
 

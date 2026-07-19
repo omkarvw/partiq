@@ -89,13 +89,28 @@ export function Button({
 
 export function StatusChip({ status }: { status: string }) {
   const color =
-    status === "In Production"
+    status === "In Production" ||
+    status === "Accepted" ||
+    status === "Quoted" ||
+    status === "Sent" ||
+    status === "Active"
       ? "bg-primary/10 text-primary"
-      : status === "Complete"
+      : status === "Complete" ||
+          status === "Closed" ||
+          status === "Superseded" ||
+          status === "Inactive"
         ? "bg-surface-container text-secondary"
-        : status === "On Hold"
+        : status === "On Hold" ||
+            status === "Rejected" ||
+            status === "No Response"
           ? "bg-error-container/40 text-error"
-          : "bg-surface-high text-secondary";
+          : status === "Negotiate" ||
+              status === "Quoting" ||
+              status === "In Review" ||
+              status === "Draft" ||
+              status === "New"
+            ? "bg-secondary-container/30 text-on-secondary-container"
+            : "bg-surface-high text-secondary";
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-code-sm ${color}`}

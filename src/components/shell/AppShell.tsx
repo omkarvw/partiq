@@ -11,15 +11,28 @@ import {
   Bell,
   HelpCircle,
   Building2,
+  Users,
+  BookOpen,
 } from "lucide-react";
 import { ORG_LABEL, PLANT_NAME } from "@/lib/data";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/parts", label: "Parts", icon: Factory },
+  { href: "/customers", label: "Customers", icon: Users },
+  { href: "/guide", label: "Guide", icon: BookOpen },
   { href: "/parts/part-mid-3060/processes/proc-cnc-1/audit", label: "Audit Log", icon: History },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
+
+function navActive(pathname: string, href: string) {
+  if (href === "/parts") {
+    return pathname.startsWith("/parts") && !pathname.includes("/audit");
+  }
+  if (href === "/customers") return pathname.startsWith("/customers");
+  if (href === "/guide") return pathname === "/guide" || pathname.startsWith("/guide/");
+  return pathname === href || pathname.startsWith(href + "/");
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -41,10 +54,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         <nav className="flex flex-1 flex-col gap-1 px-2">
           {nav.map((item) => {
-            const active =
-              item.href === "/parts"
-                ? pathname.startsWith("/parts") && !pathname.includes("/audit")
-                : pathname === item.href || pathname.startsWith(item.href + "/");
+            const active = navActive(pathname, item.href);
             const Icon = item.icon;
             return (
               <Link
@@ -95,13 +105,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Bell className="h-5 w-5" />
           </button>
-          <button
-            type="button"
-            aria-label="Help"
+          <Link
+            href="/guide"
+            aria-label="Product guide"
             className="cursor-pointer rounded-sm p-1.5 text-on-surface-variant transition-colors hover:bg-surface-high"
           >
             <HelpCircle className="h-5 w-5" />
-          </button>
+          </Link>
           <div className="ml-2 flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant bg-primary-container text-code-sm font-bold text-on-primary">
             R
           </div>

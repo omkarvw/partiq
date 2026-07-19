@@ -14,9 +14,10 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { ArrowUpRight, Clock3, IndianRupee, AlertTriangle } from "lucide-react";
+import { ArrowUpRight, Clock3, IndianRupee, AlertTriangle, Factory, FileQuestion, ScrollText, MessagesSquare } from "lucide-react";
 import {
   dashboardSignals,
+  getCommercialPipelineSummary,
   getCurrentVersion,
   getPartSignals,
   getPlantTotals,
@@ -26,7 +27,8 @@ import {
   plantWeeklyTrend,
 } from "@/lib/data";
 import { calcCost, formatDurationSeconds, formatInr, toSeconds, variancePct } from "@/lib/costing";
-import { Panel, VarianceChip } from "@/components/ui/Primitives";
+import { Panel, StatusChip, VarianceChip } from "@/components/ui/Primitives";
+import type { PipelineStageCount } from "@/lib/types";
 
 export default function DashboardPage() {
   const [partId, setPartId] = useState(parts[0]?.id ?? "");
@@ -43,6 +45,7 @@ export default function DashboardPage() {
   }, [part, processId]);
 
   const plant = useMemo(() => getPlantTotals(), []);
+  const pipeline = useMemo(() => getCommercialPipelineSummary(), []);
   const plantTimeVar = variancePct(plant.estTimeSec, plant.actTimeSec);
   const plantCostVar = variancePct(plant.estCost, plant.actCost);
 
@@ -108,6 +111,41 @@ export default function DashboardPage() {
             icon={<Clock3 className="h-4 w-4" />}
             chip={<VarianceChip pct={plantTimeVar} />}
           />
+        </div>
+
+        <div className="mb-6">
+          <h3 className="mb-3 text-headline-sm text-on-surface">Commercial pipeline</h3>
+          <p className="mb-4 text-body-sm text-on-surface-variant">
+            Totals and stage breakdown for parts, enquiries (RFQs), quotations, and customer responses.
+          </p>
+          <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Kpi
+              label="Total parts"
+              value={String(pipeline.partsTotal)}
+              icon={<Factory className="h-4 w-4" />}
+            />
+            <Kpi
+              label="Total RFQs"
+              value={String(pipeline.enquiriesTotal)}
+              icon={<FileQuestion className="h-4 w-4" />}
+            />
+            <Kpi
+              label="Total quotations"
+              value={String(pipeline.quotationsTotal)}
+              icon={<ScrollText className="h-4 w-4" />}
+            />
+            <Kpi
+              label="Customer responses"
+              value={String(pipeline.responsesTotal)}
+              icon={<MessagesSquare className="h-4 w-4" />}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
+            <PipelinePanel title="Parts by status" stages={pipeline.partsByStatus} />
+            <PipelinePanel title="RFQs by status" stages={pipeline.enquiriesByStatus} />
+            <PipelinePanel title="Quotations by status" stages={pipeline.quotationsByStatus} />
+            <PipelinePanel title="Responses by outcome" stages={pipeline.responsesByOutcome} />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
@@ -425,5 +463,44 @@ function Kpi({
         {chip}
       </div>
     </div>
+  );
+}
+
+function PipelinePanel({
+  title,
+  stages,
+}: {
+  title: string;
+  stages: PipelineStageCount[];
+}) {
+  const total = stages.reduce((sum, s) => sum + s.count, 0);
+
+  return (
+    <Panel title={title}>
+      <ul className="divide-y divide-outline-variant/50">
+        {stages.map((s) => {
+          const pct = total > 0 ? Math.round((s.count / total) * 100) : 0;
+          return (
+            <li key={s.stage} className="px-4 py-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <StatusChip status={s.stage} />
+                <span className="font-mono text-code-md text-on-surface">
+                  {s.count}
+                  <span className="ml-1 text-code-sm text-on-surface-variant">
+                    ({pct}%)
+                  </span>
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
+                <div
+                  className="h-full rounded-full bg-primary/70"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </Panel>
   );
 }

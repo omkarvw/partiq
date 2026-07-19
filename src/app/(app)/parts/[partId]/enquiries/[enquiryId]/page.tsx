@@ -54,7 +54,6 @@ export default async function EnquiryDetailPage({
             <Button variant="ghost">Back to hub</Button>
           </Link>
           <EnquiryActions
-            partId={part.id}
             enquiryId={enquiry.id}
             enquiryLabel={`${enquiry.reference} · ${enquiry.customer}`}
           />

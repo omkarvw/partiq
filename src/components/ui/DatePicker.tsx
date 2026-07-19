@@ -125,7 +125,8 @@ export function DatePicker({
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (selected) setViewMonth(startOfMonth(selected));
+    const next = parseIsoDate(value);
+    if (next) setViewMonth(startOfMonth(next));
   }, [value]);
 
   useEffect(() => {

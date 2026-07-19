@@ -36,6 +36,11 @@ export default function CommercialHubPage() {
     [part],
   );
 
+  const quotesById = useMemo(() => {
+    if (!summary) return new Map<string, { quoteNumber: string }>();
+    return new Map(summary.quotations.map((q) => [q.id, q]));
+  }, [summary]);
+
   if (!part || !summary) {
     return <div className="p-8 text-body-md">Part not found.</div>;
   }
@@ -48,10 +53,6 @@ export default function CommercialHubPage() {
     id: q.id,
     label: `${q.quoteNumber} · ${formatInr(q.unitPrice)}`,
   }));
-  const quotesById = useMemo(() => {
-    const map = new Map(summary.quotations.map((q) => [q.id, q]));
-    return map;
-  }, [summary.quotations]);
 
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "enquiries", label: "Enquiries (RFQ)", count: summary.enquiries.length },

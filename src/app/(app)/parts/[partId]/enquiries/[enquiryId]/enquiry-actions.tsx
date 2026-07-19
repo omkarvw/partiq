@@ -6,11 +6,9 @@ import { Button } from "@/components/ui/Primitives";
 import { CreateQuotationModal } from "@/components/ui/CommercialModals";
 
 export function EnquiryActions({
-  partId: _partId,
   enquiryId,
   enquiryLabel,
 }: {
-  partId: string;
   enquiryId: string;
   enquiryLabel: string;
 }) {

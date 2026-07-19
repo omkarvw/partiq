@@ -13,7 +13,7 @@ import {
   Panel,
   StatusChip,
 } from "@/components/ui/Primitives";
-import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsEditor";
+import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsReadonly";
 import { QuotationActions } from "./quotation-actions";
 
 export default async function QuotationDetailPage({

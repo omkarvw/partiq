@@ -1,20 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
-import { ArrowUpRight, Clock3, IndianRupee, AlertTriangle, Factory, FileQuestion, ScrollText, MessagesSquare } from "lucide-react";
+  ArrowUpRight,
+  Clock3,
+  IndianRupee,
+  AlertTriangle,
+  Factory,
+  FileQuestion,
+  ScrollText,
+  MessagesSquare,
+} from "lucide-react";
 import {
   dashboardSignals,
   getCommercialPipelineSummary,
@@ -30,22 +28,44 @@ import { calcCost, formatDurationSeconds, formatInr, toSeconds, variancePct } fr
 import { Panel, StatusChip, VarianceChip } from "@/components/ui/Primitives";
 import type { PipelineStageCount } from "@/lib/types";
 
+const PlantWeeklyChart = dynamic(
+  () =>
+    import("@/components/dashboard/DashboardCharts").then((m) => m.PlantWeeklyChart),
+  { ssr: false, loading: () => <ChartSkeleton height="h-72" /> },
+);
+const PartWeeklyChart = dynamic(
+  () =>
+    import("@/components/dashboard/DashboardCharts").then((m) => m.PartWeeklyChart),
+  { ssr: false, loading: () => <ChartSkeleton height="h-72" /> },
+);
+const VersionCostChart = dynamic(
+  () =>
+    import("@/components/dashboard/DashboardCharts").then((m) => m.VersionCostChart),
+  { ssr: false, loading: () => <ChartSkeleton height="h-80" /> },
+);
+
+function ChartSkeleton({ height }: { height: string }) {
+  return (
+    <div className={`${height} flex items-center justify-center p-4`}>
+      <p className="text-body-sm text-on-surface-variant">Loading chart…</p>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const [partId, setPartId] = useState(parts[0]?.id ?? "");
   const [processId, setProcessId] = useState(parts[0]?.processes[0]?.id ?? "");
 
-  const part = useMemo(() => parts.find((p) => p.id === partId) ?? parts[0], [partId]);
+  const part = parts.find((p) => p.id === partId) ?? parts[0];
 
   useEffect(() => {
     if (!part) return;
     const stillValid = part.processes.some((p) => p.id === processId);
-    if (!stillValid) {
-      setProcessId(part.processes[0]?.id ?? "");
-    }
+    if (!stillValid) setProcessId(part.processes[0]?.id ?? "");
   }, [part, processId]);
 
-  const plant = useMemo(() => getPlantTotals(), []);
-  const pipeline = useMemo(() => getCommercialPipelineSummary(), []);
+  const plant = getPlantTotals();
+  const pipeline = getCommercialPipelineSummary();
   const plantTimeVar = variancePct(plant.estTimeSec, plant.actTimeSec);
   const plantCostVar = variancePct(plant.estCost, plant.actCost);
 
@@ -68,7 +88,8 @@ export default function DashboardPage() {
   const partWeekly = part ? (partWeeklyTrends[part.id] ?? []) : [];
   const partSignals = part ? getPartSignals(part.code) : [];
   const selectedProcess = part?.processes.find((p) => p.id === processId);
-  const versionLine = part && processId ? getProcessVersionCostTrend(part.id, processId) : [];
+  const versionLine =
+    part && processId ? getProcessVersionCostTrend(part.id, processId) : [];
 
   const partTimeVar = variancePct(partMetrics.estTimeSec, partMetrics.actTimeSec);
   const partCostVar = variancePct(partMetrics.estCost, partMetrics.actCost);
@@ -79,7 +100,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-10 p-8">
-      {/* —— Aggregate (plant) —— */}
       <section>
         <div className="mb-6">
           <h2 className="text-headline-lg text-on-surface">Plant overview</h2>
@@ -89,28 +109,10 @@ export default function DashboardPage() {
         </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi
-            label="Est. process cost"
-            value={formatInr(plant.estCost)}
-            icon={<IndianRupee className="h-4 w-4" />}
-          />
-          <Kpi
-            label="Act. process cost"
-            value={formatInr(plant.actCost)}
-            icon={<IndianRupee className="h-4 w-4" />}
-            chip={<VarianceChip pct={plantCostVar} />}
-          />
-          <Kpi
-            label="Est. cycle time"
-            value={formatDurationSeconds(plant.estTimeSec)}
-            icon={<Clock3 className="h-4 w-4" />}
-          />
-          <Kpi
-            label="Act. cycle time"
-            value={formatDurationSeconds(plant.actTimeSec)}
-            icon={<Clock3 className="h-4 w-4" />}
-            chip={<VarianceChip pct={plantTimeVar} />}
-          />
+          <Kpi label="Est. process cost" value={formatInr(plant.estCost)} icon={<IndianRupee className="h-4 w-4" />} />
+          <Kpi label="Act. process cost" value={formatInr(plant.actCost)} icon={<IndianRupee className="h-4 w-4" />} chip={<VarianceChip pct={plantCostVar} />} />
+          <Kpi label="Est. cycle time" value={formatDurationSeconds(plant.estTimeSec)} icon={<Clock3 className="h-4 w-4" />} />
+          <Kpi label="Act. cycle time" value={formatDurationSeconds(plant.actTimeSec)} icon={<Clock3 className="h-4 w-4" />} chip={<VarianceChip pct={plantTimeVar} />} />
         </div>
 
         <div className="mb-6">
@@ -119,26 +121,10 @@ export default function DashboardPage() {
             Totals and stage breakdown for parts, enquiries (RFQs), quotations, and customer responses.
           </p>
           <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Kpi
-              label="Total parts"
-              value={String(pipeline.partsTotal)}
-              icon={<Factory className="h-4 w-4" />}
-            />
-            <Kpi
-              label="Total RFQs"
-              value={String(pipeline.enquiriesTotal)}
-              icon={<FileQuestion className="h-4 w-4" />}
-            />
-            <Kpi
-              label="Total quotations"
-              value={String(pipeline.quotationsTotal)}
-              icon={<ScrollText className="h-4 w-4" />}
-            />
-            <Kpi
-              label="Customer responses"
-              value={String(pipeline.responsesTotal)}
-              icon={<MessagesSquare className="h-4 w-4" />}
-            />
+            <Kpi label="Total parts" value={String(pipeline.partsTotal)} icon={<Factory className="h-4 w-4" />} />
+            <Kpi label="Total RFQs" value={String(pipeline.enquiriesTotal)} icon={<FileQuestion className="h-4 w-4" />} />
+            <Kpi label="Total quotations" value={String(pipeline.quotationsTotal)} icon={<ScrollText className="h-4 w-4" />} />
+            <Kpi label="Customer responses" value={String(pipeline.responsesTotal)} icon={<MessagesSquare className="h-4 w-4" />} />
           </div>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
             <PipelinePanel title="Parts by status" stages={pipeline.partsByStatus} />
@@ -150,34 +136,11 @@ export default function DashboardPage() {
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
           <Panel title="Weekly cost trend · Plant (₹)" className="xl:col-span-2">
-            <div className="h-72 p-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={plantWeeklyTrend} barGap={4}>
-                  <CartesianGrid stroke="#bcc9c6" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#3d4947" }} />
-                  <YAxis tick={{ fontSize: 12, fill: "#3d4947" }} />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 4,
-                      border: "1px solid #bcc9c6",
-                      fontSize: 12,
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="estimated" name="Estimated" fill="#94a3b8" radius={[2, 2, 0, 0]} />
-                  <Bar dataKey="actual" name="Actual" fill="#00685f" radius={[2, 2, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+            <PlantWeeklyChart data={plantWeeklyTrend} />
           </Panel>
-
           <Panel
             title="Active signals"
-            action={
-              <span className="label-caps text-on-surface-variant">
-                {dashboardSignals.length} alerts
-              </span>
-            }
+            action={<span className="label-caps text-on-surface-variant">{dashboardSignals.length} alerts</span>}
           >
             <ul className="divide-y divide-outline-variant/50">
               {dashboardSignals.map((s) => (
@@ -186,24 +149,17 @@ export default function DashboardPage() {
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-error" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-mono text-code-md text-primary">
-                          {s.partCode}
-                        </span>
+                        <span className="font-mono text-code-md text-primary">{s.partCode}</span>
                         <VarianceChip pct={s.variancePct} />
                       </div>
-                      <p className="mt-0.5 text-body-sm text-on-surface">
-                        {s.processName} · {s.message}
-                      </p>
+                      <p className="mt-0.5 text-body-sm text-on-surface">{s.processName} · {s.message}</p>
                     </div>
                   </div>
                 </li>
               ))}
             </ul>
             <div className="border-t border-outline-variant px-4 py-3">
-              <Link
-                href="/parts"
-                className="inline-flex cursor-pointer items-center gap-1 text-body-sm font-medium text-primary hover:underline"
-              >
+              <Link href="/parts" className="inline-flex cursor-pointer items-center gap-1 text-body-sm font-medium text-primary hover:underline">
                 Review parts <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -211,7 +167,6 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* —— Part-wise —— */}
       <section>
         <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-t border-outline-variant pt-8">
           <div>
@@ -228,9 +183,7 @@ export default function DashboardPage() {
               className="w-full cursor-pointer rounded-sm border border-outline-variant bg-surface-lowest px-3 py-2 font-mono text-code-md text-on-surface focus:border-primary"
             >
               {parts.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.code} — {p.name}
-                </option>
+                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
               ))}
             </select>
           </label>
@@ -238,79 +191,29 @@ export default function DashboardPage() {
 
         <div className="mb-2 flex items-center gap-2">
           <span className="label-caps text-on-surface-variant">Viewing</span>
-          <Link
-            href={`/parts/${part.id}`}
-            className="cursor-pointer font-mono text-code-md font-medium text-primary hover:underline"
-          >
+          <Link href={`/parts/${part.id}`} className="cursor-pointer font-mono text-code-md font-medium text-primary hover:underline">
             {part.code}
           </Link>
           <span className="text-body-sm text-on-surface-variant">· {part.material}</span>
         </div>
 
         <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <Kpi
-            label="Est. process cost"
-            value={formatInr(partMetrics.estCost)}
-            icon={<IndianRupee className="h-4 w-4" />}
-          />
-          <Kpi
-            label="Act. process cost"
-            value={formatInr(partMetrics.actCost)}
-            icon={<IndianRupee className="h-4 w-4" />}
-            chip={<VarianceChip pct={partCostVar} />}
-          />
-          <Kpi
-            label="Est. cycle time"
-            value={formatDurationSeconds(partMetrics.estTimeSec)}
-            icon={<Clock3 className="h-4 w-4" />}
-          />
-          <Kpi
-            label="Act. cycle time"
-            value={formatDurationSeconds(partMetrics.actTimeSec)}
-            icon={<Clock3 className="h-4 w-4" />}
-            chip={<VarianceChip pct={partTimeVar} />}
-          />
+          <Kpi label="Est. process cost" value={formatInr(partMetrics.estCost)} icon={<IndianRupee className="h-4 w-4" />} />
+          <Kpi label="Act. process cost" value={formatInr(partMetrics.actCost)} icon={<IndianRupee className="h-4 w-4" />} chip={<VarianceChip pct={partCostVar} />} />
+          <Kpi label="Est. cycle time" value={formatDurationSeconds(partMetrics.estTimeSec)} icon={<Clock3 className="h-4 w-4" />} />
+          <Kpi label="Act. cycle time" value={formatDurationSeconds(partMetrics.actTimeSec)} icon={<Clock3 className="h-4 w-4" />} chip={<VarianceChip pct={partTimeVar} />} />
         </div>
 
         <div className="mb-4 grid grid-cols-1 gap-4 xl:grid-cols-3">
           <Panel title={`Weekly cost trend · ${part.code} (₹)`} className="xl:col-span-2">
-            <div className="h-72 p-4">
-              {partWeekly.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">No weekly data for this part.</p>
-              ) : (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={partWeekly} barGap={4}>
-                    <CartesianGrid stroke="#bcc9c6" strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#3d4947" }} />
-                    <YAxis tick={{ fontSize: 12, fill: "#3d4947" }} />
-                    <Tooltip
-                      contentStyle={{
-                        borderRadius: 4,
-                        border: "1px solid #bcc9c6",
-                        fontSize: 12,
-                      }}
-                    />
-                    <Legend />
-                    <Bar dataKey="estimated" name="Estimated" fill="#94a3b8" radius={[2, 2, 0, 0]} />
-                    <Bar dataKey="actual" name="Actual" fill="#00685f" radius={[2, 2, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+            <PartWeeklyChart data={partWeekly} />
           </Panel>
-
           <Panel
             title="Part signals"
-            action={
-              <span className="label-caps text-on-surface-variant">
-                {partSignals.length} alerts
-              </span>
-            }
+            action={<span className="label-caps text-on-surface-variant">{partSignals.length} alerts</span>}
           >
             {partSignals.length === 0 ? (
-              <p className="p-4 text-body-sm text-on-surface-variant">
-                No overrun signals for this part.
-              </p>
+              <p className="p-4 text-body-sm text-on-surface-variant">No overrun signals for this part.</p>
             ) : (
               <ul className="divide-y divide-outline-variant/50">
                 {partSignals.map((s) => (
@@ -319,14 +222,10 @@ export default function DashboardPage() {
                       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-error" />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <span className="font-mono text-code-md text-on-surface">
-                            {s.processName}
-                          </span>
+                          <span className="font-mono text-code-md text-on-surface">{s.processName}</span>
                           <VarianceChip pct={s.variancePct} />
                         </div>
-                        <p className="mt-0.5 text-body-sm text-on-surface-variant">
-                          {s.message}
-                        </p>
+                        <p className="mt-0.5 text-body-sm text-on-surface-variant">{s.message}</p>
                       </div>
                     </div>
                   </li>
@@ -334,10 +233,7 @@ export default function DashboardPage() {
               </ul>
             )}
             <div className="border-t border-outline-variant px-4 py-3">
-              <Link
-                href={`/parts/${part.id}`}
-                className="inline-flex cursor-pointer items-center gap-1 text-body-sm font-medium text-primary hover:underline"
-              >
+              <Link href={`/parts/${part.id}`} className="inline-flex cursor-pointer items-center gap-1 text-body-sm font-medium text-primary hover:underline">
                 Open part detail <ArrowUpRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -355,9 +251,7 @@ export default function DashboardPage() {
                 className="cursor-pointer rounded-sm border border-outline-variant bg-surface-lowest px-2 py-1.5 font-mono text-code-sm text-on-surface focus:border-primary"
               >
                 {part.processes.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name.split(" - ")[0]}
-                  </option>
+                  <option key={p.id} value={p.id}>{p.name.split(" - ")[0]}</option>
                 ))}
               </select>
             </label>
@@ -365,76 +259,10 @@ export default function DashboardPage() {
         >
           <p className="border-b border-outline-variant/50 px-4 py-2 text-body-sm text-on-surface-variant">
             Line chart of estimated vs actual cost across versions of{" "}
-            <span className="font-medium text-on-surface">
-              {selectedProcess?.name ?? "selected process"}
-            </span>
+            <span className="font-medium text-on-surface">{selectedProcess?.name ?? "selected process"}</span>
             . Draft versions show estimated only until actual time is recorded.
           </p>
-          <div className="h-80 p-4">
-            {versionLine.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">
-                No versions to chart for this process.
-              </p>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart
-                  data={versionLine}
-                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
-                >
-                  <CartesianGrid stroke="#bcc9c6" strokeDasharray="3 3" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 12, fill: "#3d4947" }}
-                    tickMargin={10}
-                    height={36}
-                    axisLine={{ stroke: "#bcc9c6" }}
-                    tickLine={{ stroke: "#bcc9c6" }}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: "#3d4947" }}
-                    tickFormatter={(v) => `₹${v}`}
-                    width={56}
-                  />
-                  <Tooltip
-                    formatter={(value) => {
-                      if (value === null || value === undefined) return "—";
-                      return formatInr(typeof value === "number" ? value : Number(value));
-                    }}
-                    labelFormatter={(label) => `Version ${label}`}
-                    contentStyle={{
-                      borderRadius: 4,
-                      border: "1px solid #bcc9c6",
-                      fontSize: 12,
-                    }}
-                  />
-                  <Legend
-                    verticalAlign="bottom"
-                    align="center"
-                    wrapperStyle={{ paddingTop: 16 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="estimated"
-                    name="Estimated"
-                    stroke="#94a3b8"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: "#94a3b8" }}
-                    activeDot={{ r: 5 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="actual"
-                    name="Actual"
-                    stroke="#00685f"
-                    strokeWidth={2}
-                    dot={{ r: 4, fill: "#00685f" }}
-                    activeDot={{ r: 5 }}
-                    connectNulls={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </div>
+          <VersionCostChart data={versionLine} />
         </Panel>
       </section>
     </div>
@@ -466,15 +294,8 @@ function Kpi({
   );
 }
 
-function PipelinePanel({
-  title,
-  stages,
-}: {
-  title: string;
-  stages: PipelineStageCount[];
-}) {
+function PipelinePanel({ title, stages }: { title: string; stages: PipelineStageCount[] }) {
   const total = stages.reduce((sum, s) => sum + s.count, 0);
-
   return (
     <Panel title={title}>
       <ul className="divide-y divide-outline-variant/50">
@@ -486,16 +307,11 @@ function PipelinePanel({
                 <StatusChip status={s.stage} />
                 <span className="font-mono text-code-md text-on-surface">
                   {s.count}
-                  <span className="ml-1 text-code-sm text-on-surface-variant">
-                    ({pct}%)
-                  </span>
+                  <span className="ml-1 text-code-sm text-on-surface-variant">({pct}%)</span>
                 </span>
               </div>
               <div className="h-1.5 overflow-hidden rounded-full bg-surface-container">
-                <div
-                  className="h-full rounded-full bg-primary/70"
-                  style={{ width: `${pct}%` }}
-                />
+                <div className="h-full rounded-full bg-primary/70" style={{ width: `${pct}%` }} />
               </div>
             </li>
           );

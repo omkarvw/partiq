@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useParams, useSearchParams } from "next/navigation";
 import { ArrowLeft, Copy, Download, Maximize2, Upload } from "lucide-react";
 import { getCurrentVersion, getProcess } from "@/lib/data";
+import { getGcodeContent } from "@/lib/gcode-samples";
 import { calcCost, formatInr, formatTime, variancePct } from "@/lib/costing";
 import { Button, VarianceChip } from "@/components/ui/Primitives";
 
@@ -135,7 +136,11 @@ export default function ProgramViewerPage() {
             </div>
           </div>
           <pre className="flex-1 overflow-auto bg-[#0d1520] p-4 font-mono text-code-md leading-relaxed text-[#c6c6c9] selection:bg-primary-container/40">
-            <code>{selected?.content ?? "// No previewable content for this file"}</code>
+            <code>
+              {(selected?.id ? getGcodeContent(selected.id) : undefined) ??
+                selected?.content ??
+                "// No previewable content for this file"}
+            </code>
           </pre>
         </div>
 

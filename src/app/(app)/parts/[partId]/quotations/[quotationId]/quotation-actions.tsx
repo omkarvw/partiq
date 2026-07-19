@@ -20,12 +20,14 @@ export function QuotationActions({
         <Plus className="h-4 w-4" />
         Log Response
       </Button>
-      <CreateResponseModal
-        open={open}
-        onClose={() => setOpen(false)}
-        quotationOptions={[{ id: quotationId, label: quotationLabel }]}
-        defaultQuotationId={quotationId}
-      />
+      {open ? (
+        <CreateResponseModal
+          open
+          onClose={() => setOpen(false)}
+          quotationOptions={[{ id: quotationId, label: quotationLabel }]}
+          defaultQuotationId={quotationId}
+        />
+      ) : null}
     </>
   );
 }

@@ -22,12 +22,14 @@ export function EnquiryActions({
         <Plus className="h-4 w-4" />
         New Quotation
       </Button>
-      <CreateQuotationModal
-        open={open}
-        onClose={() => setOpen(false)}
-        enquiryOptions={[{ id: enquiryId, label: enquiryLabel }]}
-        defaultEnquiryId={enquiryId}
-      />
+      {open ? (
+        <CreateQuotationModal
+          open
+          onClose={() => setOpen(false)}
+          enquiryOptions={[{ id: enquiryId, label: enquiryLabel }]}
+          defaultEnquiryId={enquiryId}
+        />
+      ) : null}
     </>
   );
 }

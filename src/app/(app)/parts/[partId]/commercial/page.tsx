@@ -48,6 +48,10 @@ export default function CommercialHubPage() {
     id: q.id,
     label: `${q.quoteNumber} · ${formatInr(q.unitPrice)}`,
   }));
+  const quotesById = useMemo(() => {
+    const map = new Map(summary.quotations.map((q) => [q.id, q]));
+    return map;
+  }, [summary.quotations]);
 
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "enquiries", label: "Enquiries (RFQ)", count: summary.enquiries.length },
@@ -240,9 +244,7 @@ export default function CommercialHubPage() {
                 </thead>
                 <tbody className="divide-y divide-outline-variant/50">
                   {summary.responses.map((r) => {
-                    const quote = summary.quotations.find(
-                      (q) => q.id === r.quotationId,
-                    );
+                    const quote = quotesById.get(r.quotationId);
                     return (
                       <tr key={r.id} className="hover:bg-surface-low/40">
                         <td className="px-4 py-3 font-mono text-code-sm text-on-surface-variant">
@@ -272,21 +274,27 @@ export default function CommercialHubPage() {
         </Panel>
       )}
 
-      <CreateEnquiryModal
-        open={enquiryOpen}
-        onClose={() => setEnquiryOpen(false)}
-        defaultCustomerId={part.customerId}
-      />
-      <CreateQuotationModal
-        open={quoteOpen}
-        onClose={() => setQuoteOpen(false)}
-        enquiryOptions={enquiryOptions}
-      />
-      <CreateResponseModal
-        open={responseOpen}
-        onClose={() => setResponseOpen(false)}
-        quotationOptions={quotationOptions}
-      />
+      {enquiryOpen ? (
+        <CreateEnquiryModal
+          open
+          onClose={() => setEnquiryOpen(false)}
+          defaultCustomerId={part.customerId}
+        />
+      ) : null}
+      {quoteOpen ? (
+        <CreateQuotationModal
+          open
+          onClose={() => setQuoteOpen(false)}
+          enquiryOptions={enquiryOptions}
+        />
+      ) : null}
+      {responseOpen ? (
+        <CreateResponseModal
+          open
+          onClose={() => setResponseOpen(false)}
+          quotationOptions={quotationOptions}
+        />
+      ) : null}
     </div>
   );
 }

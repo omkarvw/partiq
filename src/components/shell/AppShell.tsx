@@ -14,7 +14,7 @@ import {
   Users,
   BookOpen,
 } from "lucide-react";
-import { ORG_LABEL, PLANT_NAME } from "@/lib/data";
+import { ORG_LABEL, PLANT_NAME } from "@/lib/brand";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },

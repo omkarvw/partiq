@@ -11,52 +11,7 @@ import type {
 } from "./types";
 import { calcCost, toSeconds } from "./costing";
 
-const GCODE_O3060 = `O3060
-
-N2000(START UP SUB)
-G0G40G18G99T0
-G310Z192.0T2100
-M500
-M01
-
-N1(FRONT FACING)
-/M88
-G0G40Z192.0T0
-T3131M104S2600P21
-G0X-14.5Z10.0/M08
-G0X-13.3Z-3.52
-G01X-12.75Z-2.87F0.2
-G03X-12.35Z-2.67R0.2F0.03
-G01X-10.74F.02
-Z-0.2
-G03X-10.34Z0.0R0.2
-G01X-8.7
-G0X-20.0Z5.0
-G0G40Z10.0
-G0Z192.0T0M105
-M88
-M01
-
-N2G40(ID )
-G0G40Z192.0T0M08
-T3434M103S3000
-G0X8.0
-Z1.0
-G01X10.26Z0.0F0.15
-G02X9.56Z-0.35R0.35
-G01U-0.015Z-18.0F0.05
-G0X9.35Z1.0
-G0Z192.0T0M105
-M01
-
-N500(PARTING)
-G0Z190.0T2100
-M501
-M30
-%`;
-
-export const PLANT_NAME = "Mumbai West Plant";
-export const ORG_LABEL = "ORG-992A-X";
+export { ORG_LABEL, PLANT_NAME } from "./brand";
 
 export const customers: Customer[] = [
   {
@@ -167,7 +122,6 @@ export const parts: Part[] = [
                 uploadedAt: "2026-07-01",
                 uploadedBy: "S. Smith",
                 versionNumber: 1,
-                content: GCODE_O3060,
               },
             ],
             publishedAt: "2026-07-01 09:00",
@@ -196,7 +150,6 @@ export const parts: Part[] = [
                 uploadedAt: "Today 09:41",
                 uploadedBy: "J. Doe",
                 versionNumber: 2,
-                content: GCODE_O3060,
               },
               {
                 id: "f2",
@@ -215,7 +168,6 @@ export const parts: Part[] = [
                 uploadedAt: "Yesterday",
                 uploadedBy: "Ravi",
                 versionNumber: 2,
-                content: "(MACRO VARS)\n#500=25.0\n#501=50.0\nM99\n%",
               },
             ],
             publishedAt: "2026-07-15 09:30",
@@ -263,7 +215,6 @@ export const parts: Part[] = [
                 uploadedAt: "2026-07-12",
                 uploadedBy: "Ravi",
                 versionNumber: 1,
-                content: `O3061\n(FINISH PASS)\nG0G90G54\nT0404\nG01Z-0.25F0.08\nM30\n%`,
               },
               {
                 id: "fc2b",

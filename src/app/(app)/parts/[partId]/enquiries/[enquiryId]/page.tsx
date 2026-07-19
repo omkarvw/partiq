@@ -12,7 +12,7 @@ import {
   Panel,
   StatusChip,
 } from "@/components/ui/Primitives";
-import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsEditor";
+import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsReadonly";
 import { EnquiryActions } from "./enquiry-actions";
 
 export default async function EnquiryDetailPage({

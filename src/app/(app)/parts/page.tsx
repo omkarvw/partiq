@@ -105,7 +105,7 @@ export default function PartsPage() {
         </Link>
       </p>
 
-      <CreatePartModal open={open} onClose={() => setOpen(false)} />
+      {open ? <CreatePartModal open onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }

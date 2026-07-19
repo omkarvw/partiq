@@ -96,7 +96,7 @@ export default function CustomersPage() {
         </div>
       </Panel>
 
-      <CreateCustomerModal open={open} onClose={() => setOpen(false)} />
+      {open ? <CreateCustomerModal open onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }

@@ -62,7 +62,6 @@ function buildCalendarCells(viewMonth: Date) {
   const year = first.getFullYear();
   const month = first.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  // JS: Sun=0 … Sat=6 → Monday-first index
   const startWeekday = (first.getDay() + 6) % 7;
 
   const cells: { date: Date; inMonth: boolean }[] = [];

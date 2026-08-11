@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Check, ChevronDown, ChevronUp, ListChecks, X } from "lucide-react";
 import { usePathname } from "next/navigation";
@@ -53,11 +53,11 @@ export function StoryChecklist() {
   const [progress, setProgress] = useState<StoryProgress | null>(null);
   const [mode, setMode] = useState(getCommercialMode());
 
-  const refresh = () => {
+  const refresh = useCallback(() => {
     setMode(getCommercialMode());
     syncAutoComplete(onboarded, record.machines.length);
     setProgress(readStoryProgress());
-  };
+  }, [onboarded, record.machines.length]);
 
   useEffect(() => {
     refresh();
@@ -68,7 +68,7 @@ export function StoryChecklist() {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("partiq-story-refresh", onStorage);
     };
-  }, [onboarded, record.machines.length, pathname]);
+  }, [refresh, pathname]);
 
   const doneCount = useMemo(() => {
     if (!progress) return 0;

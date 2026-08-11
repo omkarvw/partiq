@@ -5,6 +5,7 @@ import {
   tableFeatures,
   useTable,
   type ColumnDef,
+  type RowData,
 } from "@tanstack/react-table";
 
 const FEATURES = tableFeatures({
@@ -12,13 +13,13 @@ const FEATURES = tableFeatures({
 });
 
 export type PlantTableFeatures = typeof FEATURES;
-export type PlantColumnDef<T extends Record<string, any>> = ColumnDef<
+export type PlantColumnDef<T extends RowData> = ColumnDef<
   PlantTableFeatures,
   T,
   unknown
 >;
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T extends RowData>({
   data,
   columns,
   getRowId,

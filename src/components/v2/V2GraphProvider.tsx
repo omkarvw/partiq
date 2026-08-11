@@ -32,7 +32,6 @@ import {
   exampleToolingProfiles,
   hasCompletedOnboarding,
   readClientRecord,
-  snapshotFromRecord,
   toFactoryInputs,
   toMachineInputs,
   writeClientRecord,

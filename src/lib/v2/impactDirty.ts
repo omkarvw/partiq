@@ -20,15 +20,16 @@ function utilityMachineSlice(machines: V2MachineDraft[]) {
 
 /** Machine cost/calendar fields excluding utility (owned by Utilities cost area). */
 function machinesWithoutUtility(machines: V2MachineDraft[]) {
-  return machines.map((m) => {
-    const {
-      powerKw: _p,
-      utilityLines: _u,
-      otherUtilityAnnual: _o,
-      ...rest
-    } = m;
-    return rest;
-  });
+  return machines.map((m) =>
+    Object.fromEntries(
+      Object.entries(m).filter(
+        ([key]) =>
+          key !== "powerKw" &&
+          key !== "utilityLines" &&
+          key !== "otherUtilityAnnual",
+      ),
+    ),
+  );
 }
 
 export function sectionSlices(snap: V2BaselineSnapshot) {

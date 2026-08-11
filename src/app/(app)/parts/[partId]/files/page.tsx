@@ -1,17 +1,23 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Download, Eye, Upload } from "lucide-react";
-import { getCurrentVersion, getPart } from "@/lib/data";
-import { Breadcrumbs, Button, EmptyState, Panel } from "@/components/ui/Primitives";
+"use client";
 
-export default async function PartFilesHubPage({
-  params,
-}: {
-  params: Promise<{ partId: string }>;
-}) {
-  const { partId } = await params;
-  const part = getPart(partId);
-  if (!part) notFound();
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { Download, Eye, Upload } from "lucide-react";
+import { getCurrentVersion } from "@/lib/data";
+import { Breadcrumbs, Button, EmptyState, Panel } from "@/components/ui/Primitives";
+import {
+  EntityLoading,
+  EntityMissing,
+  useOverlayReady,
+  usePart,
+} from "@/lib/commercial/useClientEntity";
+
+export default function PartFilesHubPage() {
+  const params = useParams<{ partId: string }>();
+  const ready = useOverlayReady(params.partId);
+  const part = usePart(params.partId);
+  if (!ready) return <EntityLoading />;
+  if (!part) return <EntityMissing label="Part not found" />;
 
   return (
     <div className="p-8">

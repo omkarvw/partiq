@@ -1,8 +1,8 @@
-# PartIq — UI Prototype
+# PartIq — Founder Demo Prototype
 
 Industrial Precision design system (teal `#00685f`, navy sidebar, Public Sans + JetBrains Mono).
 
-**PartIq** tracks customers (master), parts, enquiries / RFQs, quotations, customer responses, process steps, MHR-driven cost, G-code, and production signals.
+**PartIq** is a frontend-only decision prototype: a dummy factory calculation graph drives explainable Machine Hour Rate, impact analysis, and scenarios — while RFQs, quotations, process costing, and G-code remain as the commercial / shopfloor downstream.
 
 ## Run
 
@@ -14,29 +14,36 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) → Login → Continue to dashboard.
 
-Start with **Guide** in the sidebar (or the help icon) for a walkthrough of the product flow.
+Start with **Demo Guide** in the sidebar for the ~12 minute founder walkthrough.
+
+## Demo spine
+
+1. `/dashboard` — Decision KPIs (capacity, plant ₹/hr, profit, quotes at risk)
+2. `/factory/machines/mch-brother-vmc` — Clickable MHR breakup (Brother VMC golden case)
+3. `/impact` — Change electricity or utilization → live cascade
+4. `/parts/part-mid-3060` — Derived MHR on processes + G-code still available
+5. `/parts/part-mid-3060/commercial` — Live quote margins vs graph cost
+6. `/scenarios` — Baseline / Night shift / Solar / Salary +15%
 
 ## Screens
 
 | Route | Screen |
 |-------|--------|
 | `/login` | Login |
-| `/guide` | Product guide — end-to-end flow for demos |
-| `/dashboard` | Plant KPIs, commercial pipeline analytics, part-wise charts |
-| `/customers` | Customer master list + create modal |
-| `/customers/[customerId]` | Customer detail, linked parts & RFQs |
-| `/parts` | Parts list + Create Part modal |
-| `/parts/empty-demo` | Empty parts state |
-| `/parts/part-mid-3060` | Part detail + process sequence + commercial summary |
-| `/parts/part-brk-118/commercial` | Commercial hub (enquiries, quotations, responses) |
-| `/parts/.../enquiries/[enquiryId]` | Enquiry / RFQ detail + custom fields |
-| `/parts/.../quotations/[quotationId]` | Quotation detail + margin vs process cost |
-| `/parts/.../responses/[responseId]` | Customer response detail |
-| `/parts/part-mid-3060/files` | Files hub (grouped by process) |
-| `/parts/part-mid-3060/processes/proc-cnc-1` | Process entry (MHR, time unit, Add field) |
+| `/guide` | Founder demo script |
+| `/dashboard` | Decision dashboard |
+| `/factory` | Factory overview + machines |
+| `/factory/machines/[machineId]` | Explainable MHR |
+| `/impact` | Impact lab |
+| `/scenarios` | Scenario compare |
+| `/customers` | Customer master |
+| `/parts` | Parts list |
+| `/parts/[partId]` | Part + process sequence (live graph cost) |
+| `/parts/.../commercial` | RFQ / quotation / response hub |
+| `/parts/.../processes/...` | Process entry (derived MHR) |
 | `.../viewer` | G-code program viewer |
 | `.../audit` | Audit trail |
 | `.../versions` | Process version history |
-| `/settings` | Plant defaults placeholder |
+| `/settings` | Formula legend + session assumptions |
 
-Dummy data only — no database yet. Create forms demonstrate UX but do not persist.
+Dummy data only — no database. Session lever/scenario edits reset on refresh or via **Reset baseline**.

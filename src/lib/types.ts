@@ -1,4 +1,9 @@
-export type PartStatus = "In Production" | "Quoting" | "Complete" | "On Hold";
+export type PartStatus =
+  | "In Production"
+  | "Quoting"
+  | "Complete"
+  | "On Hold"
+  | "Inactive";
 
 export type TimeUnit = "minutes" | "seconds";
 
@@ -24,6 +29,8 @@ export type ProcessVersion = {
   versionNumber: number;
   status: "draft" | "current" | "archived";
   mhr: number;
+  /** When set, live costing uses derived machine MHR from the factory graph. */
+  machineId?: string;
   /** Unit for estimated & actual time on this version. */
   timeUnit: TimeUnit;
   timeEstimated: number;
@@ -93,7 +100,7 @@ export type Enquiry = {
   customFields: CustomField[];
 };
 
-export type QuotationStatus = "Draft" | "Sent" | "Superseded";
+export type QuotationStatus = "Draft" | "Sent" | "Superseded" | "Inactive";
 
 export type Quotation = {
   id: string;

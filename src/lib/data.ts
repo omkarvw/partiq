@@ -10,6 +10,13 @@ import type {
   Quotation,
 } from "./types";
 import { calcCost, toSeconds } from "./costing";
+import {
+  getCommercialMode,
+  readCustomerOverlay,
+  readEnquiryOverlay,
+  readPartOverlay,
+  readQuoteOverlay,
+} from "./commercial/entityStore";
 
 export { ORG_LABEL, PLANT_NAME } from "./brand";
 
@@ -107,6 +114,7 @@ export const parts: Part[] = [
             versionNumber: 1,
             status: "archived",
             mhr: 1100,
+            machineId: "example-vmc-1",
             timeUnit: "minutes",
             timeEstimated: 50,
             timeActual: 48,
@@ -130,7 +138,8 @@ export const parts: Part[] = [
           {
             versionNumber: 2,
             status: "current",
-            mhr: 1250,
+            mhr: 1727,
+            machineId: "example-vmc-1",
             timeUnit: "minutes",
             timeEstimated: 45,
             timeActual: 52,
@@ -176,7 +185,8 @@ export const parts: Part[] = [
           {
             versionNumber: 3,
             status: "draft",
-            mhr: 1250,
+            mhr: 1727,
+            machineId: "example-vmc-1",
             timeUnit: "minutes",
             timeEstimated: 42,
             timeActual: 0,
@@ -199,7 +209,8 @@ export const parts: Part[] = [
           {
             versionNumber: 1,
             status: "current",
-            mhr: 1400,
+            mhr: 1727,
+            machineId: "example-vmc-1",
             timeUnit: "minutes",
             timeEstimated: 135,
             timeActual: 135,
@@ -242,7 +253,8 @@ export const parts: Part[] = [
           {
             versionNumber: 1,
             status: "current",
-            mhr: 950,
+            mhr: 1727,
+            machineId: "example-vmc-1",
             timeUnit: "seconds",
             timeEstimated: 1800,
             timeActual: 2700,
@@ -276,7 +288,8 @@ export const parts: Part[] = [
           {
             versionNumber: 1,
             status: "current",
-            mhr: 800,
+            mhr: 1727,
+            machineId: "example-vmc-1",
             timeUnit: "minutes",
             timeEstimated: 22,
             timeActual: 28,
@@ -310,7 +323,8 @@ export const parts: Part[] = [
           {
             versionNumber: 1,
             status: "current",
-            mhr: 1000,
+            mhr: 1200,
+            machineId: "example-cnc-1",
             timeUnit: "minutes",
             timeEstimated: 12,
             timeActual: 11,
@@ -540,6 +554,51 @@ export const quotations: Quotation[] = [
   },
 ];
 
+/** Seed quotes merged with locally created rescue / draft quotes. */
+export function getAllQuotations(): Quotation[] {
+  const overlay = readQuoteOverlay();
+  if (getCommercialMode() === "story") {
+    return [...overlay].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+  if (overlay.length === 0) return quotations;
+  const byId = new Map<string, Quotation>();
+  for (const q of quotations) byId.set(q.id, q);
+  for (const q of overlay) byId.set(q.id, q);
+  return Array.from(byId.values()).sort((a, b) =>
+    b.createdAt.localeCompare(a.createdAt),
+  );
+}
+
+export function getAllCustomers(): Customer[] {
+  const overlay = readCustomerOverlay();
+  if (getCommercialMode() === "story") return overlay;
+  if (overlay.length === 0) return customers;
+  const byId = new Map<string, Customer>();
+  for (const c of customers) byId.set(c.id, c);
+  for (const c of overlay) byId.set(c.id, c);
+  return Array.from(byId.values());
+}
+
+export function getAllParts(): Part[] {
+  const overlay = readPartOverlay();
+  if (getCommercialMode() === "story") return overlay;
+  if (overlay.length === 0) return parts;
+  const byId = new Map<string, Part>();
+  for (const p of parts) byId.set(p.id, p);
+  for (const p of overlay) byId.set(p.id, p);
+  return Array.from(byId.values());
+}
+
+export function getAllEnquiries(): Enquiry[] {
+  const overlay = readEnquiryOverlay();
+  if (getCommercialMode() === "story") return overlay;
+  if (overlay.length === 0) return enquiries;
+  const byId = new Map<string, Enquiry>();
+  for (const e of enquiries) byId.set(e.id, e);
+  for (const e of overlay) byId.set(e.id, e);
+  return Array.from(byId.values());
+}
+
 export const customerResponses: CustomerResponse[] = [
   {
     id: "resp-brk-1",
@@ -734,11 +793,11 @@ export const partWeeklyTrends: Record<
 };
 
 export function getPart(partId: string): Part | undefined {
-  return parts.find((p) => p.id === partId);
+  return getAllParts().find((p) => p.id === partId);
 }
 
 export function getCustomer(customerId: string): Customer | undefined {
-  return customers.find((c) => c.id === customerId);
+  return getAllCustomers().find((c) => c.id === customerId);
 }
 
 export function getCustomerName(customerId: string): string {
@@ -746,11 +805,11 @@ export function getCustomerName(customerId: string): string {
 }
 
 export function getPartsForCustomer(customerId: string): Part[] {
-  return parts.filter((p) => p.customerId === customerId);
+  return getAllParts().filter((p) => p.customerId === customerId);
 }
 
 export function getEnquiriesForCustomer(customerId: string): Enquiry[] {
-  return enquiries.filter((e) => e.customerId === customerId);
+  return getAllEnquiries().filter((e) => e.customerId === customerId);
 }
 
 /**
@@ -796,7 +855,7 @@ export function getPlantTotals() {
   let actCost = 0;
   let estTimeSec = 0;
   let actTimeSec = 0;
-  parts.forEach((part) => {
+  getAllParts().forEach((part) => {
     part.processes.forEach((proc) => {
       const v = getCurrentVersion(proc);
       estCost += calcCost(v.mhr, v.timeEstimated, v.timeUnit);
@@ -825,23 +884,23 @@ export function getCurrentVersion(process: Part["processes"][number]) {
 }
 
 export function getEnquiriesForPart(partId: string): Enquiry[] {
-  return enquiries.filter((e) => e.partId === partId);
+  return getAllEnquiries().filter((e) => e.partId === partId);
 }
 
 export function getEnquiry(enquiryId: string): Enquiry | undefined {
-  return enquiries.find((e) => e.id === enquiryId);
+  return getAllEnquiries().find((e) => e.id === enquiryId);
 }
 
 export function getQuotationsForPart(partId: string): Quotation[] {
-  return quotations.filter((q) => q.partId === partId);
+  return getAllQuotations().filter((q) => q.partId === partId);
 }
 
 export function getQuotationsForEnquiry(enquiryId: string): Quotation[] {
-  return quotations.filter((q) => q.enquiryId === enquiryId);
+  return getAllQuotations().filter((q) => q.enquiryId === enquiryId);
 }
 
 export function getQuotation(quotationId: string): Quotation | undefined {
-  return quotations.find((q) => q.id === quotationId);
+  return getAllQuotations().find((q) => q.id === quotationId);
 }
 
 export function getResponsesForPart(partId: string): CustomerResponse[] {
@@ -888,19 +947,19 @@ export function getCommercialPipelineSummary(): CommercialPipelineSummary {
   ] as const;
 
   return {
-    partsTotal: parts.length,
+    partsTotal: getAllParts().length,
     partsByStatus: countByStage(
-      parts.map((p) => ({ stage: p.status })),
+      getAllParts().map((p) => ({ stage: p.status })),
       partStatuses,
     ),
-    enquiriesTotal: enquiries.length,
+    enquiriesTotal: getAllEnquiries().length,
     enquiriesByStatus: countByStage(
-      enquiries.map((e) => ({ stage: e.status })),
+      getAllEnquiries().map((e) => ({ stage: e.status })),
       enquiryStatuses,
     ),
-    quotationsTotal: quotations.length,
+    quotationsTotal: getAllQuotations().length,
     quotationsByStatus: countByStage(
-      quotations.map((q) => ({ stage: q.status })),
+      getAllQuotations().map((q) => ({ stage: q.status })),
       quotationStatuses,
     ),
     responsesTotal: customerResponses.length,

@@ -3,25 +3,32 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Search } from "lucide-react";
-import { customers } from "@/lib/data";
+import { getAllCustomers } from "@/lib/data";
 import { Button, Panel, StatusChip } from "@/components/ui/Primitives";
 import { CreateCustomerModal } from "@/components/ui/Modals";
+import { CustomerStatusToggle } from "@/components/commercial/EntityStatusToggle";
 
 export default function CustomersPage() {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  const allCustomers = useMemo(() => {
+    void tick;
+    return getAllCustomers();
+  }, [tick]);
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return customers;
-    return customers.filter(
+    if (!needle) return allCustomers;
+    return allCustomers.filter(
       (c) =>
         c.code.toLowerCase().includes(needle) ||
         c.name.toLowerCase().includes(needle) ||
         c.city.toLowerCase().includes(needle) ||
         c.contactName.toLowerCase().includes(needle),
     );
-  }, [q]);
+  }, [q, allCustomers]);
 
   return (
     <div className="p-8">
@@ -54,49 +61,84 @@ export default function CustomersPage() {
           </span>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left">
-            <thead className="bg-surface-low">
-              <tr className="label-caps text-on-surface-variant">
-                <th className="px-4 py-2.5 font-bold">Code</th>
-                <th className="px-4 py-2.5 font-bold">Name</th>
-                <th className="px-4 py-2.5 font-bold">Contact</th>
-                <th className="px-4 py-2.5 font-bold">City</th>
-                <th className="px-4 py-2.5 font-bold">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((c) => (
-                <tr
-                  key={c.id}
-                  className="border-t border-outline-variant/50 transition-colors hover:bg-surface-low/70"
-                >
-                  <td className="px-4 py-3">
-                    <Link
-                      href={`/customers/${c.id}`}
-                      className="cursor-pointer font-mono text-code-md font-medium text-primary hover:underline"
-                    >
-                      {c.code}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3 text-body-md text-on-surface">{c.name}</td>
-                  <td className="px-4 py-3 text-body-sm text-on-surface-variant">
-                    {c.contactName}
-                  </td>
-                  <td className="px-4 py-3 font-mono text-code-sm text-on-surface-variant">
-                    {c.city}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusChip status={c.status} />
-                  </td>
+        {filtered.length === 0 ? (
+          <div className="px-6 py-16 text-center">
+            <p className="text-headline-sm text-on-surface">No customers yet</p>
+            <p className="mt-1 text-body-sm text-on-surface-variant">
+              Add your first buyer to unlock parts and quotes.
+            </p>
+            <Button className="mt-6" onClick={() => setOpen(true)}>
+              <Plus className="h-4 w-4" />
+              New Customer
+            </Button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-left">
+              <thead className="bg-surface-low">
+                <tr className="label-caps text-on-surface-variant">
+                  <th className="px-4 py-2.5 font-bold">Code</th>
+                  <th className="px-4 py-2.5 font-bold">Name</th>
+                  <th className="px-4 py-2.5 font-bold">Contact</th>
+                  <th className="px-4 py-2.5 font-bold">City</th>
+                  <th className="px-4 py-2.5 font-bold">Status</th>
+                  <th className="px-4 py-2.5 font-bold"> </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {filtered.map((c) => (
+                  <tr
+                    key={c.id}
+                    className={`border-t border-outline-variant/50 transition-colors hover:bg-surface-low/70 ${
+                      c.status === "Inactive" ? "opacity-55" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3">
+                      <Link
+                        href={`/customers/${c.id}`}
+                        className="cursor-pointer font-mono text-code-md font-medium text-primary hover:underline"
+                      >
+                        {c.code}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-body-md text-on-surface">
+                      {c.name}
+                    </td>
+                    <td className="px-4 py-3 text-body-sm text-on-surface-variant">
+                      {c.contactName}
+                    </td>
+                    <td className="px-4 py-3 font-mono text-code-sm text-on-surface-variant">
+                      {c.city}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusChip status={c.status} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span
+                        onClick={() => setTick((t) => t + 1)}
+                        onKeyDown={() => undefined}
+                        role="presentation"
+                      >
+                        <CustomerStatusToggle customerId={c.id} />
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </Panel>
 
-      {open ? <CreateCustomerModal open onClose={() => setOpen(false)} /> : null}
+      {open ? (
+        <CreateCustomerModal
+          open
+          onClose={() => {
+            setOpen(false);
+            setTick((t) => t + 1);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

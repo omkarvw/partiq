@@ -1,10 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import {
-  getEnquiry,
-  getPart,
-  getQuotationsForEnquiry,
-} from "@/lib/data";
+import { useParams } from "next/navigation";
+import { getQuotationsForEnquiry } from "@/lib/data";
 import { formatInr } from "@/lib/costing";
 import {
   Breadcrumbs,
@@ -14,16 +12,23 @@ import {
 } from "@/components/ui/Primitives";
 import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsReadonly";
 import { EnquiryActions } from "./enquiry-actions";
+import {
+  EntityLoading,
+  EntityMissing,
+  useEnquiry,
+  useOverlayReady,
+  usePart,
+} from "@/lib/commercial/useClientEntity";
 
-export default async function EnquiryDetailPage({
-  params,
-}: {
-  params: Promise<{ partId: string; enquiryId: string }>;
-}) {
-  const { partId, enquiryId } = await params;
-  const part = getPart(partId);
-  const enquiry = getEnquiry(enquiryId);
-  if (!part || !enquiry || enquiry.partId !== partId) notFound();
+export default function EnquiryDetailPage() {
+  const params = useParams<{ partId: string; enquiryId: string }>();
+  const ready = useOverlayReady(params.enquiryId);
+  const part = usePart(params.partId);
+  const enquiry = useEnquiry(params.enquiryId);
+  if (!ready) return <EntityLoading />;
+  if (!part || !enquiry || enquiry.partId !== params.partId) {
+    return <EntityMissing label="Enquiry not found" />;
+  }
 
   const quotes = getQuotationsForEnquiry(enquiry.id);
 
@@ -54,6 +59,7 @@ export default async function EnquiryDetailPage({
             <Button variant="ghost">Back to hub</Button>
           </Link>
           <EnquiryActions
+            partId={part.id}
             enquiryId={enquiry.id}
             enquiryLabel={`${enquiry.reference} · ${enquiry.customer}`}
           />

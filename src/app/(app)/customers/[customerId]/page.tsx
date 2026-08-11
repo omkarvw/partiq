@@ -1,7 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
-  getCustomer,
   getEnquiriesForCustomer,
   getPartsForCustomer,
 } from "@/lib/data";
@@ -12,15 +13,27 @@ import {
   StatusChip,
 } from "@/components/ui/Primitives";
 import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsReadonly";
+import {
+  EntityLoading,
+  EntityMissing,
+  useCustomer,
+  useOverlayReady,
+} from "@/lib/commercial/useClientEntity";
 
-export default async function CustomerDetailPage({
-  params,
-}: {
-  params: Promise<{ customerId: string }>;
-}) {
-  const { customerId } = await params;
-  const customer = getCustomer(customerId);
-  if (!customer) notFound();
+export default function CustomerDetailPage() {
+  const params = useParams<{ customerId: string }>();
+  const ready = useOverlayReady(params.customerId);
+  const customer = useCustomer(params.customerId);
+  if (!ready) return <EntityLoading />;
+  if (!customer) {
+    return (
+      <EntityMissing
+        label="Customer not found"
+        href="/customers"
+        linkLabel="Back to customers"
+      />
+    );
+  }
 
   const linkedParts = getPartsForCustomer(customer.id);
   const linkedEnquiries = getEnquiriesForCustomer(customer.id);

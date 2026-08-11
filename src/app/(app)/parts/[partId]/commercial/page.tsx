@@ -20,20 +20,26 @@ import {
   CreateQuotationModal,
   CreateResponseModal,
 } from "@/components/ui/CommercialModals";
+import { CommercialLiveBanner } from "@/components/demo/QuotationLiveEconomics";
 
 type Tab = "enquiries" | "quotations" | "responses";
 
 export default function CommercialHubPage() {
   const params = useParams<{ partId: string }>();
-  const part = getPart(params.partId);
   const [tab, setTab] = useState<Tab>("enquiries");
   const [enquiryOpen, setEnquiryOpen] = useState(false);
   const [quoteOpen, setQuoteOpen] = useState(false);
   const [responseOpen, setResponseOpen] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  const part = useMemo(() => {
+    void tick;
+    return getPart(params.partId);
+  }, [params.partId, tick]);
 
   const summary = useMemo(
     () => (part ? getCommercialSummaryForPart(part.id) : null),
-    [part],
+    [part, tick],
   );
 
   const quotesById = useMemo(() => {
@@ -47,12 +53,15 @@ export default function CommercialHubPage() {
 
   const enquiryOptions = summary.enquiries.map((e) => ({
     id: e.id,
-    label: `${e.reference} · ${e.customer} · qty ${e.quantity}`,
+    label: `${e.reference} · ${e.customer}`,
   }));
+
   const quotationOptions = summary.quotations.map((q) => ({
     id: q.id,
     label: `${q.quoteNumber} · ${formatInr(q.unitPrice)}`,
   }));
+
+  const bump = () => setTick((t) => t + 1);
 
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: "enquiries", label: "Enquiries (RFQ)", count: summary.enquiries.length },
@@ -107,6 +116,8 @@ export default function CommercialHubPage() {
           )}
         </div>
       </div>
+
+      <CommercialLiveBanner partId={part.id} />
 
       <div className="mb-4 flex flex-wrap gap-1 border-b border-outline-variant">
         {tabs.map((t) => (
@@ -278,21 +289,32 @@ export default function CommercialHubPage() {
       {enquiryOpen ? (
         <CreateEnquiryModal
           open
-          onClose={() => setEnquiryOpen(false)}
+          partId={part.id}
+          onClose={() => {
+            setEnquiryOpen(false);
+            bump();
+          }}
           defaultCustomerId={part.customerId}
         />
       ) : null}
       {quoteOpen ? (
         <CreateQuotationModal
           open
-          onClose={() => setQuoteOpen(false)}
+          partId={part.id}
+          onClose={() => {
+            setQuoteOpen(false);
+            bump();
+          }}
           enquiryOptions={enquiryOptions}
         />
       ) : null}
       {responseOpen ? (
         <CreateResponseModal
           open
-          onClose={() => setResponseOpen(false)}
+          onClose={() => {
+            setResponseOpen(false);
+            bump();
+          }}
           quotationOptions={quotationOptions}
         />
       ) : null}

@@ -1,8 +1,13 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
 import { FileText, FolderOpen, Handshake, Plus } from "lucide-react";
-import { getCommercialSummaryForPart, getCurrentVersion, getPart } from "@/lib/data";
-import { calcCost, formatDurationSeconds, formatInr, formatTime, toSeconds, variancePct } from "@/lib/costing";
+import {
+  getCommercialSummaryForPart,
+  getCurrentVersion,
+} from "@/lib/data";
+import { formatDurationSeconds, formatTime, toSeconds, variancePct } from "@/lib/costing";
 import {
   Breadcrumbs,
   Button,
@@ -10,15 +15,24 @@ import {
   StatusChip,
   VarianceChip,
 } from "@/components/ui/Primitives";
+import { PartLiveCostBanner } from "@/components/demo/PartLiveCostBanner";
+import { ProcessRowLiveCost } from "@/components/demo/ProcessRowLiveCost";
+import { PartStatusToggle } from "@/components/commercial/EntityStatusToggle";
+import {
+  EntityLoading,
+  EntityMissing,
+  useOverlayReady,
+  usePart,
+} from "@/lib/commercial/useClientEntity";
 
-export default async function PartDetailPage({
-  params,
-}: {
-  params: Promise<{ partId: string }>;
-}) {
-  const { partId } = await params;
-  const part = getPart(partId);
-  if (!part) notFound();
+export default function PartDetailPage() {
+  const params = useParams<{ partId: string }>();
+  const ready = useOverlayReady(params.partId);
+  const part = usePart(params.partId);
+  if (!ready) return <EntityLoading />;
+  if (!part) {
+    return <EntityMissing label="Part not found" />;
+  }
 
   const commercial = getCommercialSummaryForPart(part.id);
   const byDateDesc = <T extends { createdAt?: string; respondedAt?: string }>(
@@ -50,7 +64,8 @@ export default async function PartDetailPage({
           <h2 className="text-headline-lg text-on-surface">Part: {part.code}</h2>
           <p className="mt-1 max-w-2xl text-body-md text-secondary">{part.description}</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <PartStatusToggle partId={part.id} />
           <Link href={`/parts/${part.id}/commercial`}>
             <Button variant="secondary">
               <Handshake className="h-4 w-4" />
@@ -66,6 +81,8 @@ export default async function PartDetailPage({
           <Button variant="secondary">Edit Details</Button>
         </div>
       </div>
+
+      <PartLiveCostBanner partId={part.id} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2">
@@ -119,11 +136,13 @@ export default async function PartDetailPage({
                           <p className="mt-1 max-w-md text-body-sm text-secondary line-clamp-2">
                             {proc.description}
                           </p>
-                          <p className="mt-2 font-mono text-code-sm text-on-surface-variant">
-                            v{proc.currentVersion} current · MHR {formatInr(v.mhr)}/hr · Cost{" "}
-                            {formatInr(calcCost(v.mhr, v.timeActual, v.timeUnit))} · unit{" "}
-                            {v.timeUnit}
-                          </p>
+                          <ProcessRowLiveCost
+                            machineId={v.machineId}
+                            fallbackMhr={v.mhr}
+                            timeActual={v.timeActual}
+                            timeUnit={v.timeUnit}
+                            versionNumber={proc.currentVersion}
+                          />
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-1">
                           <div className="flex items-center gap-2">

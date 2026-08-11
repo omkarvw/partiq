@@ -1,10 +1,8 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import {
-  getCustomerResponse,
-  getPart,
-  getQuotation,
-} from "@/lib/data";
+import { useParams } from "next/navigation";
+import { getQuotation } from "@/lib/data";
 import { formatInr } from "@/lib/costing";
 import {
   Breadcrumbs,
@@ -13,16 +11,23 @@ import {
   StatusChip,
 } from "@/components/ui/Primitives";
 import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsReadonly";
+import {
+  EntityLoading,
+  EntityMissing,
+  useCustomerResponse,
+  useOverlayReady,
+  usePart,
+} from "@/lib/commercial/useClientEntity";
 
-export default async function ResponseDetailPage({
-  params,
-}: {
-  params: Promise<{ partId: string; responseId: string }>;
-}) {
-  const { partId, responseId } = await params;
-  const part = getPart(partId);
-  const response = getCustomerResponse(responseId);
-  if (!part || !response || response.partId !== partId) notFound();
+export default function ResponseDetailPage() {
+  const params = useParams<{ partId: string; responseId: string }>();
+  const ready = useOverlayReady(params.responseId);
+  const part = usePart(params.partId);
+  const response = useCustomerResponse(params.responseId);
+  if (!ready) return <EntityLoading />;
+  if (!part || !response || response.partId !== params.partId) {
+    return <EntityMissing label="Response not found" />;
+  }
 
   const quotation = getQuotation(response.quotationId);
 

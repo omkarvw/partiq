@@ -4,18 +4,24 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { History, Plus, Save, Trash2, Upload } from "lucide-react";
-import { getProcess } from "@/lib/data";
+import { useRouter } from "next/navigation";
+import { getPart, getProcess } from "@/lib/data";
 import { calcCost, formatInr, timeUnitLabel, variancePct } from "@/lib/costing";
-import type { CustomField, TimeUnit } from "@/lib/types";
+import type { Attachment, CustomField, TimeUnit } from "@/lib/types";
 import {
   Breadcrumbs,
   Button,
   Panel,
   VarianceChip,
 } from "@/components/ui/Primitives";
+import { useV2Graph } from "@/components/v2/V2GraphProvider";
+import { DerivedMhrBadge } from "@/components/demo/DerivedMhrBadge";
+import { upsertPart } from "@/lib/commercial/entityStore";
+import { markStory } from "@/components/story/StoryChecklist";
 
 export default function ProcessEntryPage() {
   const params = useParams<{ partId: string; processId: string }>();
+  const router = useRouter();
   const found = getProcess(params.partId, params.processId);
 
   const initial = useMemo(() => {
@@ -28,11 +34,11 @@ export default function ProcessEntryPage() {
   }, [found]);
 
   const [version, setVersion] = useState(found?.process.currentVersion ?? 1);
-  const [mhr, setMhr] = useState(initial?.mhr ?? 0);
   const [timeUnit, setTimeUnit] = useState<TimeUnit>(initial?.timeUnit ?? "minutes");
   const [est, setEst] = useState(initial?.timeEstimated ?? 0);
   const [act, setAct] = useState(initial?.timeActual ?? 0);
   const [fields, setFields] = useState<CustomField[]>(initial?.customFields ?? []);
+  const { resolveMhr, getMachine, resolveMachineId } = useV2Graph();
 
   if (!found || !initial) {
     return <div className="p-8 text-body-md">Process not found.</div>;
@@ -41,6 +47,10 @@ export default function ProcessEntryPage() {
   const { part, process } = found;
   const selected =
     process.versions.find((v) => v.versionNumber === version) ?? initial;
+  const machineId = selected.machineId;
+  const liveMachineId = resolveMachineId(machineId);
+  const machine = machineId ? getMachine(machineId) : undefined;
+  const mhr = resolveMhr(selected.mhr, machineId);
 
   const estCost = calcCost(mhr, est, timeUnit);
   const actCost = calcCost(mhr, act, timeUnit);
@@ -52,7 +62,6 @@ export default function ProcessEntryPage() {
     const v = process.versions.find((x) => x.versionNumber === n);
     if (!v) return;
     setVersion(n);
-    setMhr(v.mhr);
     setTimeUnit(v.timeUnit);
     setEst(v.timeEstimated);
     setAct(v.timeActual);
@@ -123,11 +132,29 @@ export default function ProcessEntryPage() {
             <Panel title="Metrics">
               <div className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2">
                 <div className="space-y-3">
-                  <MetricInput
-                    label="MHR (₹/hr)"
-                    value={mhr}
-                    onChange={setMhr}
-                  />
+                  {machine && liveMachineId ? (
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                      <span className="label-caps w-36 shrink-0 text-right text-on-surface-variant sm:pr-4">
+                        MHR (₹/hr)
+                      </span>
+                      <DerivedMhrBadge
+                        machineId={liveMachineId}
+                        machineName={machine.name}
+                        mhr={mhr}
+                      />
+                    </div>
+                  ) : (
+                    <MetricInput
+                      label="MHR (₹/hr)"
+                      value={mhr}
+                      onChange={() => undefined}
+                    />
+                  )}
+                  <p className="pl-0 text-[11px] text-on-surface-variant sm:pl-36">
+                    MHR comes from your plant setup when a machine is linked.
+                    Change labour, electricity, or utilization in Impact to
+                    update this cost.
+                  </p>
                   <div className="flex items-center">
                     <label className="label-caps w-36 shrink-0 pr-4 text-right text-on-surface-variant">
                       Time unit
@@ -248,13 +275,51 @@ export default function ProcessEntryPage() {
 
           <Panel title="Process Files">
             <div className="flex h-full flex-col p-4">
-              <div className="mb-4 cursor-pointer rounded-lg border-2 border-dashed border-outline-variant p-4 text-center transition-colors hover:border-primary/50 hover:bg-surface-low">
+              <button
+                type="button"
+                className="mb-4 cursor-pointer rounded-lg border-2 border-dashed border-outline-variant p-4 text-center transition-colors hover:border-primary/50 hover:bg-surface-low"
+                onClick={() => {
+                  const partLive = getPart(part.id);
+                  if (!partLive) return;
+                  const file: Attachment = {
+                    id: `file-${Date.now()}`,
+                    name: `${part.code.replaceAll("-", "")}.nc`,
+                    kind: "gcode",
+                    sizeLabel: "12 KB",
+                    uploadedAt: new Date().toISOString().slice(0, 10),
+                    uploadedBy: "You",
+                    content: `(Demo G-code for ${part.code})\nG21\nG90\nT1 M6\nG0 X0 Y0\nM30`,
+                    processId: process.id,
+                    versionNumber: selected.versionNumber,
+                  };
+                  const next = {
+                    ...partLive,
+                    processes: partLive.processes.map((proc) => {
+                      if (proc.id !== process.id) return proc;
+                      return {
+                        ...proc,
+                        versions: proc.versions.map((v) =>
+                          v.versionNumber === selected.versionNumber
+                            ? { ...v, files: [...v.files, file] }
+                            : v,
+                        ),
+                      };
+                    }),
+                  };
+                  upsertPart(next);
+                  markStory("attach_gcode");
+                  router.refresh();
+                }}
+              >
                 <Upload className="mx-auto mb-2 h-8 w-8 text-outline" />
                 <p className="text-body-sm text-on-surface-variant">
-                  Drag files here or <span className="font-medium text-primary">browse</span>
+                  Click to attach demo G-code (
+                  <span className="font-medium text-primary">.nc</span>)
                 </p>
-                <p className="label-caps mt-1 text-outline">.nc, .gcode, .P-2, .pdf</p>
-              </div>
+                <p className="label-caps mt-1 text-outline">
+                  Prototype upload — stores on this process version
+                </p>
+              </button>
               <h4 className="label-caps mb-2 text-on-surface-variant">
                 Attached · v{selected.versionNumber}
               </h4>
@@ -289,13 +354,49 @@ export default function ProcessEntryPage() {
           <Button variant="ghost">Cancel</Button>
         </Link>
         <Button variant="secondary">Publish new version</Button>
-        <Button>
+        <Button
+          onClick={() => {
+            const partLive = getPart(part.id);
+            if (!partLive) return;
+            const next = {
+              ...partLive,
+              processes: partLive.processes.map((proc) => {
+                if (proc.id !== process.id) return proc;
+                return {
+                  ...proc,
+                  versions: proc.versions.map((v) =>
+                    v.versionNumber === selected.versionNumber
+                      ? {
+                          ...v,
+                          timeUnit,
+                          timeEstimated: est,
+                          timeActual: act,
+                          customFields: fields,
+                          machineId:
+                            v.machineId ??
+                            liveMachineId ??
+                            recordMachinesFallback(),
+                        }
+                      : v,
+                  ),
+                };
+              }),
+            };
+            upsertPart(next);
+            if (est > 0 || act > 0) markStory("process_times");
+            router.refresh();
+          }}
+        >
           <Save className="h-[18px] w-[18px]" />
           Save Changes
         </Button>
       </div>
     </div>
   );
+}
+
+function recordMachinesFallback(): string | undefined {
+  return undefined;
 }
 
 function MetricInput({

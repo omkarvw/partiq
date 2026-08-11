@@ -1,11 +1,21 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
 import { CustomFieldsEditor } from "@/components/ui/CustomFieldsEditor";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { customers } from "@/lib/data";
+import {
+  getAllCustomers,
+  getEnquiry,
+  getPart,
+} from "@/lib/data";
+import {
+  upsertEnquiry,
+  addQuotation,
+} from "@/lib/commercial/entityStore";
+import { markStory } from "@/components/story/StoryChecklist";
 import type {
   CustomField,
   EnquiryStatus,
@@ -123,7 +133,7 @@ function CustomerSelect({
   onChange: (id: string) => void;
   required?: boolean;
 }) {
-  const active = customers.filter((c) => c.status === "Active");
+  const active = getAllCustomers().filter((c) => c.status === "Active");
   return (
     <label className="block">
       <span className="label-caps mb-1 block text-on-surface-variant">
@@ -149,14 +159,20 @@ function CustomerSelect({
 export function CreateEnquiryModal({
   open,
   onClose,
+  partId,
   defaultCustomerId,
 }: {
   open: boolean;
   onClose: () => void;
+  partId: string;
   defaultCustomerId?: string;
 }) {
+  const router = useRouter();
+  const part = getPart(partId);
   const [reference, setReference] = useState("");
-  const [customerId, setCustomerId] = useState(defaultCustomerId ?? "");
+  const [customerId, setCustomerId] = useState(
+    defaultCustomerId ?? part?.customerId ?? "",
+  );
   const [quantity, setQuantity] = useState("1");
   const [neededBy, setNeededBy] = useState("");
   const [quoteBy, setQuoteBy] = useState("");
@@ -164,7 +180,7 @@ export function CreateEnquiryModal({
   const [status, setStatus] = useState<EnquiryStatus>("New");
   const [fields, setFields] = useState<CustomField[]>([]);
 
-  if (!open) return null;
+  if (!open || !part) return null;
 
   return (
     <ModalShell title="New Enquiry (RFQ)" onClose={onClose} wide>
@@ -172,7 +188,28 @@ export function CreateEnquiryModal({
         className="space-y-4 p-4"
         onSubmit={(e) => {
           e.preventDefault();
+          const customer = getAllCustomers().find((c) => c.id === customerId);
+          if (!customer) return;
+          upsertEnquiry({
+            id: `enq-${Date.now()}`,
+            partId: part.id,
+            reference: reference.trim() || `ENQ-${Date.now()}`,
+            customerId: customer.id,
+            customer: customer.name,
+            quantity: Number(quantity) || 1,
+            neededBy,
+            quoteBy,
+            notes,
+            status,
+            createdAt: new Date().toISOString().slice(0, 10),
+            createdBy: "You",
+            customFields: fields,
+          });
           onClose();
+          router.refresh();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("partiq-story-refresh"));
+          }
         }}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -234,12 +271,15 @@ export function CreateQuotationModal({
   onClose,
   enquiryOptions,
   defaultEnquiryId,
+  partId: partIdProp,
 }: {
   open: boolean;
   onClose: () => void;
   enquiryOptions: { id: string; label: string }[];
   defaultEnquiryId?: string;
+  partId?: string;
 }) {
+  const router = useRouter();
   const [enquiryId, setEnquiryId] = useState(
     defaultEnquiryId ?? enquiryOptions[0]?.id ?? "",
   );
@@ -261,7 +301,33 @@ export function CreateQuotationModal({
         className="space-y-4 p-4"
         onSubmit={(e) => {
           e.preventDefault();
+          const enquiry = getEnquiry(enquiryId);
+          const partId = partIdProp ?? enquiry?.partId;
+          if (!partId || !enquiry) return;
+          const quoteId = `quo-${Date.now()}`;
+          addQuotation({
+            id: quoteId,
+            partId,
+            enquiryId,
+            quoteNumber: quoteNumber.trim() || `Q-${Date.now()}`,
+            unitPrice: Number(unitPrice) || 0,
+            currency: "INR",
+            quantity: Number(quantity) || 1,
+            leadTimeDays: Number(leadTimeDays) || 14,
+            validUntil:
+              validUntil ||
+              new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+            terms: terms || "Net 30 · Ex-works",
+            notes,
+            status,
+            createdAt: new Date().toISOString().slice(0, 10),
+            createdBy: "You",
+            customFields: fields,
+          });
+          markStory("create_quote");
           onClose();
+          router.push(`/parts/${partId}/quotations/${quoteId}`);
+          router.refresh();
         }}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -293,7 +359,7 @@ export function CreateQuotationModal({
             label="Status"
             value={status}
             onChange={setStatus}
-            options={["Draft", "Sent", "Superseded"] as const}
+            options={["Draft", "Sent", "Inactive"] as const}
           />
           <Field
             label="Unit price (₹)"
@@ -341,7 +407,7 @@ export function CreateQuotationModal({
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit">
+          <Button type="submit" disabled={enquiryOptions.length === 0}>
             <Plus className="h-4 w-4" />
             Save Quotation
           </Button>

@@ -1,22 +1,23 @@
 import type { Metadata } from "next";
-import { Public_Sans, JetBrains_Mono } from "next/font/google";
+import { Instrument_Sans, IBM_Plex_Mono } from "next/font/google";
+import "lenis/dist/lenis.css";
 import "./globals.css";
 
-const publicSans = Public_Sans({
+const instrumentSans = Instrument_Sans({
   variable: "--font-public-sans",
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   variable: "--font-jetbrains-mono",
   subsets: ["latin"],
-  weight: ["500", "700"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
   title: "PartIq",
-  description: "PartIq — manufacturing process, cycle time, and cost signals",
+  description: "PartIq — manufacturing decision intelligence",
 };
 
 export default function RootLayout({
@@ -26,7 +27,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${publicSans.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+      <body
+        className={`${instrumentSans.variable} ${ibmPlexMono.variable} font-sans antialiased`}
+      >
         {children}
       </body>
     </html>

@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/Primitives";
 import { CreateQuotationModal } from "@/components/ui/CommercialModals";
 
 export function EnquiryActions({
+  partId,
   enquiryId,
   enquiryLabel,
 }: {
+  partId: string;
   enquiryId: string;
   enquiryLabel: string;
 }) {
@@ -23,6 +25,7 @@ export function EnquiryActions({
       {open ? (
         <CreateQuotationModal
           open
+          partId={partId}
           onClose={() => setOpen(false)}
           enquiryOptions={[{ id: enquiryId, label: enquiryLabel }]}
           defaultEnquiryId={enquiryId}

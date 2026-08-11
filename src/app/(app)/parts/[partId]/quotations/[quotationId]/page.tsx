@@ -1,9 +1,9 @@
+"use client";
+
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { useParams } from "next/navigation";
 import {
   getEnquiry,
-  getPart,
-  getQuotation,
   getResponsesForQuotation,
 } from "@/lib/data";
 import { formatInr } from "@/lib/costing";
@@ -15,16 +15,24 @@ import {
 } from "@/components/ui/Primitives";
 import { CustomFieldsReadonly } from "@/components/ui/CustomFieldsReadonly";
 import { QuotationActions } from "./quotation-actions";
+import { QuotationLiveEconomics } from "@/components/demo/QuotationLiveEconomics";
+import {
+  EntityLoading,
+  EntityMissing,
+  useOverlayReady,
+  usePart,
+  useQuotation,
+} from "@/lib/commercial/useClientEntity";
 
-export default async function QuotationDetailPage({
-  params,
-}: {
-  params: Promise<{ partId: string; quotationId: string }>;
-}) {
-  const { partId, quotationId } = await params;
-  const part = getPart(partId);
-  const quotation = getQuotation(quotationId);
-  if (!part || !quotation || quotation.partId !== partId) notFound();
+export default function QuotationDetailPage() {
+  const params = useParams<{ partId: string; quotationId: string }>();
+  const ready = useOverlayReady(params.quotationId);
+  const part = usePart(params.partId);
+  const quotation = useQuotation(params.quotationId);
+  if (!ready) return <EntityLoading />;
+  if (!part || !quotation || quotation.partId !== params.partId) {
+    return <EntityMissing label="Quotation not found" />;
+  }
 
   const enquiry = getEnquiry(quotation.enquiryId);
   const responses = getResponsesForQuotation(quotation.id);
@@ -74,10 +82,12 @@ export default async function QuotationDetailPage({
           <Link href={`/parts/${part.id}/commercial`}>
             <Button variant="ghost">Back to hub</Button>
           </Link>
-          <QuotationActions
-            quotationId={quotation.id}
-            quotationLabel={`${quotation.quoteNumber} · ${formatInr(quotation.unitPrice)}`}
-          />
+          <div className="flex flex-wrap gap-2">
+            <QuotationActions
+              quotationId={quotation.id}
+              quotationLabel={`${quotation.quoteNumber} · ${formatInr(quotation.unitPrice)}`}
+            />
+          </div>
         </div>
       </div>
 
@@ -98,6 +108,12 @@ export default async function QuotationDetailPage({
           }
         />
       </div>
+
+      <QuotationLiveEconomics
+        quotationId={quotation.id}
+        quoteNumber={quotation.quoteNumber}
+        partId={part.id}
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div className="space-y-4 lg:col-span-2">

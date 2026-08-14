@@ -37,12 +37,6 @@ export function PlantFields({
           onChange={(e) => onChange({ city: e.target.value })}
         />
       </V2Field>
-      <V2Field label="Org label">
-        <V2Input
-          value={plant.orgLabel}
-          onChange={(e) => onChange({ orgLabel: e.target.value })}
-        />
-      </V2Field>
       <V2Field
         label="Target gross margin %"
         required
@@ -64,6 +58,16 @@ export function PlantFields({
         <p className="mt-1.5 text-[11px] text-on-surface-variant">
           Parts whose live quote margin falls below this goal appear on{" "}
           <span className="font-medium text-error">Urgent</span>.
+        </p>
+      </V2Field>
+      <V2Field label="Org label (optional)">
+        <V2Input
+          value={plant.orgLabel}
+          placeholder="Skip if unused"
+          onChange={(e) => onChange({ orgLabel: e.target.value })}
+        />
+        <p className="mt-1.5 text-[11px] text-on-surface-variant">
+          Internal plant code only — not used in Cash MHR. Leave blank.
         </p>
       </V2Field>
     </div>

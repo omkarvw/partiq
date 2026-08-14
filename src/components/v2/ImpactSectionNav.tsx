@@ -8,7 +8,7 @@ import { IMPACT_SECTIONS } from "@/lib/v2/clientDb";
 
 export function ImpactSectionNav() {
   const pathname = usePathname();
-  const { dirty, dirtyTotal } = useImpactDraft();
+  const { moneyDirty, moneyDirtyTotal } = useImpactDraft();
   const overviewActive = pathname === "/impact";
 
   return (
@@ -23,9 +23,9 @@ export function ImpactSectionNav() {
       >
         <LayoutDashboard className="h-4 w-4" />
         Overview
-        {dirtyTotal > 0 ? (
+        {moneyDirtyTotal > 0 ? (
           <span className="rounded-full bg-on-primary/20 px-1.5 text-[10px]">
-            {dirtyTotal} changed
+            {moneyDirtyTotal} changed
           </span>
         ) : null}
       </Link>
@@ -34,8 +34,8 @@ export function ImpactSectionNav() {
           pathname === section.href || pathname.startsWith(`${section.href}/`);
         const changed =
           section.id === "machines"
-            ? dirty.machines || dirty.labour
-            : dirty[section.id];
+            ? moneyDirty.machines || moneyDirty.labour
+            : moneyDirty[section.id];
         return (
           <Link
             key={section.id}

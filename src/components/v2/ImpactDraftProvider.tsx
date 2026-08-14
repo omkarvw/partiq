@@ -34,13 +34,16 @@ import {
   type V2Statutory,
   type V2ToolingLine,
 } from "@/lib/v2/clientDb";
-import { anyDirty, dirtyCount, dirtySections } from "@/lib/v2/impactDirty";
+import { anyDirty, dirtyCount, dirtySections, moneyDirtySections } from "@/lib/v2/impactDirty";
 
 type ImpactDraftValue = {
   baselineSnap: V2BaselineSnapshot;
   draft: V2BaselineSnapshot;
   dirty: Record<ImpactSectionId, boolean>;
   dirtyTotal: number;
+  /** Yellow lights / cost-area strip — excludes section moves that don’t change ₹/hr. */
+  moneyDirty: Record<ImpactSectionId, boolean>;
+  moneyDirtyTotal: number;
   isDirty: boolean;
   focusMachineId: string;
   setFocusMachineId: (id: string) => void;
@@ -54,6 +57,8 @@ type ImpactDraftValue = {
   patchPlant: (partial: Partial<V2PlantDraft>) => void;
   patchUtilities: (rate: number) => void;
   upsertDraftMachine: (m: V2MachineDraft) => void;
+  /** Replace the full draft machine list (e.g. utility structure applied to a type). */
+  replaceDraftMachines: (machines: V2MachineDraft[]) => void;
   addDraftMachine: (
     type?: string,
     sectionId?: string | null,
@@ -143,8 +148,13 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
     () => dirtySections(baselineSnap, draft),
     [baselineSnap, draft],
   );
+  const moneyDirty = useMemo(
+    () => moneyDirtySections(baselineSnap, draft),
+    [baselineSnap, draft],
+  );
   const isDirty = anyDirty(dirty);
   const dirtyTotal = dirtyCount(dirty);
+  const moneyDirtyTotal = dirtyCount(moneyDirty);
   dirtyRef.current = isDirty;
 
   const syncFromLive = useCallback(
@@ -237,6 +247,10 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
         : [...prev.machines, m];
       return { ...prev, machines };
     });
+  }, []);
+
+  const replaceDraftMachines = useCallback((machines: V2MachineDraft[]) => {
+    setDraft((prev) => ({ ...prev, machines }));
   }, []);
 
   const addDraftMachine = useCallback(
@@ -442,6 +456,8 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
       draft,
       dirty,
       dirtyTotal,
+      moneyDirty,
+      moneyDirtyTotal,
       isDirty,
       focusMachineId,
       setFocusMachineId,
@@ -455,6 +471,7 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
       patchPlant,
       patchUtilities,
       upsertDraftMachine,
+      replaceDraftMachines,
       addDraftMachine,
       removeDraftMachine,
       setLabourForType,
@@ -477,6 +494,8 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
       draft,
       dirty,
       dirtyTotal,
+      moneyDirty,
+      moneyDirtyTotal,
       isDirty,
       focusMachineId,
       focusType,
@@ -486,6 +505,7 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
       patchPlant,
       patchUtilities,
       upsertDraftMachine,
+      replaceDraftMachines,
       addDraftMachine,
       removeDraftMachine,
       setLabourForType,

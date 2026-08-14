@@ -26,8 +26,8 @@ import {
 export default function ImpactOverviewPage() {
   const {
     draft,
-    dirty,
-    dirtyTotal,
+    moneyDirty,
+    moneyDirtyTotal,
     focusMachineId,
     setFocusMachineId,
     focusType,
@@ -54,7 +54,7 @@ export default function ImpactOverviewPage() {
       ? buildMachineCascade(baselineBreakup, currentBreakup)
       : [];
 
-  const leverKey = `${draft.plant.electricityRatePerKwh}-${focusMachine?.utilizationPct ?? 0}-${dirtyTotal}`;
+  const leverKey = `${draft.plant.electricityRatePerKwh}-${focusMachine?.utilizationPct ?? 0}-${moneyDirtyTotal}`;
   const cascadeActive = useCascade(leverKey, 3, 160);
 
   const fmtInrHr = useCallback((v: number) => `${formatInr(v)}/hr`, []);
@@ -118,7 +118,7 @@ export default function ImpactOverviewPage() {
                 </label>
                 <span
                   className={`font-mono text-code-sm tabular-nums ${
-                    dirty.utilities ? "text-primary" : "text-on-surface-variant"
+                    moneyDirty.utilities ? "text-primary" : "text-on-surface-variant"
                   }`}
                 >
                   ₹{rate.toFixed(2)}/kWh
@@ -141,7 +141,7 @@ export default function ImpactOverviewPage() {
                 </label>
                 <span
                   className={`font-mono text-code-sm tabular-nums ${
-                    dirty.machines ? "text-primary" : "text-on-surface-variant"
+                    moneyDirty.machines ? "text-primary" : "text-on-surface-variant"
                   }`}
                 >
                   {util.toFixed(0)}%
@@ -209,14 +209,52 @@ export default function ImpactOverviewPage() {
         </div>
       </Reveal>
 
-      <div className="grid gap-3 rounded-xl border border-outline-variant bg-surface-lowest p-4 sm:grid-cols-2">
-        <V2Field label="Focus type (charts)">
+      <div className="grid gap-3 rounded-xl border border-outline-variant bg-surface-lowest p-4 sm:grid-cols-3">
+        <V2Field label="Section">
+          <V2Select
+            value={
+              draft.machines.find((m) => m.id === focusMachineId)?.sectionId ??
+              draft.sections?.[0]?.id ??
+              ""
+            }
+            onChange={(e) => {
+              const nextSec = e.target.value || null;
+              const inSec = draft.machines.filter((m) =>
+                nextSec ? m.sectionId === nextSec : !m.sectionId,
+              );
+              const pick =
+                inSec.find((m) => m.type === focusType) ?? inSec[0] ?? null;
+              if (pick) {
+                setFocusType(pick.type);
+                setFocusMachineId(pick.id);
+              }
+            }}
+          >
+            {(draft.sections ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+            {draft.machines.some((m) => !m.sectionId) ? (
+              <option value="">Unassigned</option>
+            ) : null}
+          </V2Select>
+        </V2Field>
+        <V2Field label="Type">
           <V2Select
             value={focusType}
             onChange={(e) => {
               const type = e.target.value;
               setFocusType(type);
-              const first = draft.machines.find((m) => m.type === type);
+              const secId =
+                draft.machines.find((m) => m.id === focusMachineId)
+                  ?.sectionId ?? null;
+              const first =
+                draft.machines.find(
+                  (m) =>
+                    m.type === type &&
+                    (secId ? m.sectionId === secId : !m.sectionId),
+                ) ?? draft.machines.find((m) => m.type === type);
               if (first) setFocusMachineId(first.id);
             }}
           >
@@ -227,10 +265,14 @@ export default function ImpactOverviewPage() {
             ))}
           </V2Select>
         </V2Field>
-        <V2Field label="Focus machine">
+        <V2Field label="Machine">
           <V2Select
             value={focusMachineId}
-            onChange={(e) => setFocusMachineId(e.target.value)}
+            onChange={(e) => {
+              setFocusMachineId(e.target.value);
+              const m = draft.machines.find((x) => x.id === e.target.value);
+              if (m) setFocusType(m.type);
+            }}
           >
             {machinesOfType.map((machine) => (
               <option key={machine.id} value={machine.id}>
@@ -317,13 +359,15 @@ export default function ImpactOverviewPage() {
                 href={section.href}
                 className="press inline-flex items-center gap-2 rounded-lg bg-surface-low px-3 py-2 text-body-sm text-on-surface hover:bg-primary/10"
               >
-                {dirty[section.id] ? (
+                {moneyDirty[section.id] ||
+                (section.id === "machines" && moneyDirty.labour) ? (
                   <span className="impact-dirty-light" aria-hidden />
                 ) : (
                   <span className="inline-block h-2 w-2 rounded-full bg-outline-variant" />
                 )}
                 {section.label}
-                {dirty[section.id] ? (
+                {moneyDirty[section.id] ||
+                (section.id === "machines" && moneyDirty.labour) ? (
                   <span className="text-code-sm text-amber-700">Changed</span>
                 ) : null}
               </Link>

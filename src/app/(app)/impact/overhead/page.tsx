@@ -12,7 +12,7 @@ import {
 import { formatInr } from "@/lib/costing";
 
 export default function ImpactOverheadPage() {
-  const { draft, dirty, upsertOverheadLine, removeOverheadLine } =
+  const { draft, moneyDirty, upsertOverheadLine, removeOverheadLine } =
     useImpactDraft();
 
   const ohPlant = overheadAnnualPlant(draft.overheadLines);
@@ -29,7 +29,7 @@ export default function ImpactOverheadPage() {
       title="Factory overhead"
       body="Plant-wide people salaries, rent, and fixed lines. Allocated as FO ÷ machine count."
     >
-      {dirty.overhead ? (
+      {moneyDirty.overhead ? (
         <p className="mb-3 inline-flex items-center gap-2 text-body-sm text-amber-700">
           <span className="impact-dirty-light" />
           Changed vs baseline

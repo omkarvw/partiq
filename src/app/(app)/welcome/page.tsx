@@ -10,7 +10,7 @@ import { useV2Graph } from "@/components/v2/V2GraphProvider";
 import {
   StoryPanel,
   V2PrimaryButton,
-  V2SecondaryButton,
+  // V2SecondaryButton — unused while walkthrough is commented out
 } from "@/components/v2/V2Ui";
 
 export default function WelcomePage() {
@@ -39,6 +39,7 @@ export default function WelcomePage() {
           body="Enter plant costs once. Watch labour, utilities, overhead, and machine hour rates come alive. Try what-ifs — even new machines for a prospect — without touching your live factory until you say so."
         >
           <div className="flex flex-wrap gap-3">
+            {/* Walkthrough paused for now — re-enable when product tour returns
             <V2PrimaryButton
               onClick={() => {
                 setStep("tour");
@@ -48,14 +49,16 @@ export default function WelcomePage() {
               Start walkthrough
               <ArrowRight className="h-4 w-4" />
             </V2PrimaryButton>
-            <V2SecondaryButton
+            */}
+            <V2PrimaryButton
               onClick={() => {
                 setStep("plant");
                 router.push("/setup");
               }}
             >
-              Skip to plant setup
-            </V2SecondaryButton>
+              Start plant setup
+              <ArrowRight className="h-4 w-4" />
+            </V2PrimaryButton>
           </div>
           <p className="mt-6 text-body-sm text-on-surface-variant">
             Looking for your live factory?{" "}
@@ -77,8 +80,7 @@ export default function WelcomePage() {
           <div className="border-t border-outline-variant/70 bg-white/90 px-5 py-4">
             <p className="label-caps text-primary">First session promise</p>
             <p className="mt-1 text-body-sm text-on-surface">
-              Explain → Capture plant → Derive Cash MHR → Land on your
-              dashboard.
+              Capture plant → Derive Cash MHR → Land on Factory Pulse.
             </p>
           </div>
         </motion.div>

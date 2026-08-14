@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useV2Graph } from "@/components/v2/V2GraphProvider";
 import { formatInr } from "@/lib/costing";
 import { CostCompositionPanel } from "@/components/plant/CostCompositionPanel";
@@ -19,6 +19,7 @@ import type { MhrBreakup } from "@/lib/factory/types";
 import { Button } from "@/components/ui/Primitives";
 import { AnimatedNumber, Reveal } from "@/components/motion/motion-kit";
 import { DataTable, type PlantColumnDef } from "@/components/plant/DataTable";
+import { RemoveIconButton } from "@/components/v2/editors/EditorPrimitives";
 
 export default function FactoryPulsePage() {
   const {
@@ -460,19 +461,14 @@ function MachineGroup({
       {
         id: "actions",
         header: "",
-        size: 110,
-        minSize: 110,
-        maxSize: 110,
+        size: 48,
+        minSize: 44,
+        maxSize: 52,
         cell: ({ row }) => (
-          <button
-            type="button"
-            aria-label={`Remove ${row.original.name}`}
+          <RemoveIconButton
+            label={`Remove ${row.original.name}`}
             onClick={() => setPending(row.original)}
-            className="inline-flex h-9 w-full items-center justify-center gap-1 rounded border border-outline-variant px-2 text-body-sm text-on-surface-variant hover:border-error/40 hover:text-error"
-          >
-            <Trash2 className="h-3.5 w-3.5 shrink-0" />
-            Remove
-          </button>
+          />
         ),
       },
     ],

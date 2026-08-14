@@ -173,6 +173,14 @@ export type V2MachineDraft = {
    */
   otherUtilityAnnual: number;
   utilityLines: V2UtilityLine[];
+  /**
+   * Excel 08-style maintenance heads. `maintenanceAnnual` is always their sum
+   * (engine input). Prefer editing the three parts in UI.
+   */
+  maintenanceAmcAnnual: number;
+  maintenancePmAnnual: number;
+  maintenanceSparesAnnual: number;
+  /** Derived / synced total — AMC + PM + spares. */
   maintenanceAnnual: number;
   desiredProfitPct: number;
   footprintSqFt: number;
@@ -354,6 +362,25 @@ export function defaultUtilityLines(): V2UtilityLine[] {
   ];
 }
 
+/** Custom or blank utility row (Excel 07-style). */
+export function createUtilityLine(
+  name = "Custom utility",
+  mode: V2UtilityLineMode = "annual",
+): V2UtilityLine {
+  return {
+    id: uid("util"),
+    name,
+    mode,
+    annualAmount: 0,
+    qtyPerDay: 0,
+    ratePerUnit: 0,
+  };
+}
+
+export function cloneUtilityLine(line: V2UtilityLine): V2UtilityLine {
+  return { ...line, id: uid("util") };
+}
+
 export function utilityLineAnnual(
   line: V2UtilityLine,
   workingDaysPerYear: number,
@@ -384,6 +411,20 @@ export function syncMachineUtilityAnnual(machine: V2MachineDraft): V2MachineDraf
       lines,
       machine.workingDaysPerYear,
     ),
+  };
+}
+
+/** Keep maintenanceAnnual = AMC + PM + spares (Excel 08 parity). */
+export function syncMachineMaintenance(machine: V2MachineDraft): V2MachineDraft {
+  const amc = Number(machine.maintenanceAmcAnnual) || 0;
+  const pm = Number(machine.maintenancePmAnnual) || 0;
+  const spares = Number(machine.maintenanceSparesAnnual) || 0;
+  return {
+    ...machine,
+    maintenanceAmcAnnual: amc,
+    maintenancePmAnnual: pm,
+    maintenanceSparesAnnual: spares,
+    maintenanceAnnual: amc + pm + spares,
   };
 }
 
@@ -623,6 +664,9 @@ export function createEmptyMachine(
     powerKw: type === "VMC" ? 10 : 7.5,
     otherUtilityAnnual: 0,
     utilityLines: defaultUtilityLines(),
+    maintenanceAmcAnnual: 0,
+    maintenancePmAnnual: 0,
+    maintenanceSparesAnnual: 0,
     maintenanceAnnual: 0,
     desiredProfitPct: 30,
     footprintSqFt: 0,
@@ -753,40 +797,48 @@ export function exampleMachines(sectionId: string | null = null): V2MachineDraft
     return line;
   });
   return [
-    syncMachineUtilityAnnual({
-      ...createEmptyMachine(1, "VMC", sectionId),
-      id: "example-vmc-1",
-      name: "Brother VMC",
-      machineCost: 4_000_000,
-      freight: 50_000,
-      foundation: 50_000,
-      accessories: 500_000,
-      powerKw: 10,
-      utilityLines: vmcLines,
-      maintenanceAnnual: 143_000,
-      desiredProfitPct: 40,
-      ...cal,
-      hoursPerShift: 12,
-      workingDaysPerMonth: 20,
-      workingDaysPerYear: 240,
-      toolingOverride: null,
-    }),
-    syncMachineUtilityAnnual({
-      ...createEmptyMachine(1, "CNC Lathe", sectionId),
-      id: "example-cnc-1",
-      name: "CNC Lathe 1",
-      machineCost: 2_200_000,
-      freight: 30_000,
-      installation: 40_000,
-      foundation: 25_000,
-      accessories: 150_000,
-      powerKw: 7.5,
-      utilityLines: latheLines,
-      maintenanceAnnual: 85_000,
-      desiredProfitPct: 30,
-      ...cal,
-      toolingOverride: null,
-    }),
+    syncMachineMaintenance(
+      syncMachineUtilityAnnual({
+        ...createEmptyMachine(1, "VMC", sectionId),
+        id: "example-vmc-1",
+        name: "Brother VMC",
+        machineCost: 4_000_000,
+        freight: 50_000,
+        foundation: 50_000,
+        accessories: 500_000,
+        powerKw: 10,
+        utilityLines: vmcLines,
+        maintenanceAmcAnnual: 100_000,
+        maintenancePmAnnual: 28_000,
+        maintenanceSparesAnnual: 15_000,
+        desiredProfitPct: 40,
+        ...cal,
+        hoursPerShift: 12,
+        workingDaysPerMonth: 20,
+        workingDaysPerYear: 240,
+        toolingOverride: null,
+      }),
+    ),
+    syncMachineMaintenance(
+      syncMachineUtilityAnnual({
+        ...createEmptyMachine(1, "CNC Lathe", sectionId),
+        id: "example-cnc-1",
+        name: "CNC Lathe 1",
+        machineCost: 2_200_000,
+        freight: 30_000,
+        installation: 40_000,
+        foundation: 25_000,
+        accessories: 150_000,
+        powerKw: 7.5,
+        utilityLines: latheLines,
+        maintenanceAmcAnnual: 60_000,
+        maintenancePmAnnual: 15_000,
+        maintenanceSparesAnnual: 10_000,
+        desiredProfitPct: 30,
+        ...cal,
+        toolingOverride: null,
+      }),
+    ),
   ];
 }
 
@@ -1129,7 +1181,17 @@ export function migrateMachineDraft(
   if (!merged.utilityLines.length) {
     merged.utilityLines = defaultUtilityLines();
   }
-  return syncMachineUtilityAnnual(merged);
+  // Legacy single maintenanceAnnual → treat as AMC if parts unset
+  const hasParts =
+    (Number(merged.maintenanceAmcAnnual) || 0) > 0 ||
+    (Number(merged.maintenancePmAnnual) || 0) > 0 ||
+    (Number(merged.maintenanceSparesAnnual) || 0) > 0;
+  if (!hasParts && (Number(merged.maintenanceAnnual) || 0) > 0) {
+    merged.maintenanceAmcAnnual = merged.maintenanceAnnual;
+    merged.maintenancePmAnnual = 0;
+    merged.maintenanceSparesAnnual = 0;
+  }
+  return syncMachineMaintenance(syncMachineUtilityAnnual(merged));
 }
 
 export function migrateClientRecord(raw: Record<string, unknown>): V2ClientRecord {

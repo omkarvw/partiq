@@ -1,7 +1,13 @@
 "use client";
 
-import { Num } from "@/components/v2/editors/EditorPrimitives";
-import { V2Field, V2Input, V2SecondaryButton } from "@/components/v2/V2Ui";
+import { useMemo } from "react";
+import {
+  DataTable,
+  TableCellInput,
+  type PlantColumnDef,
+} from "@/components/plant/DataTable";
+import { CollapsibleBlock, Num, RemoveIconButton } from "@/components/v2/editors/EditorPrimitives";
+import { V2SecondaryButton } from "@/components/v2/V2Ui";
 import {
   LABOUR_ROLE_SUGGESTIONS,
   createLabourRole,
@@ -17,6 +23,7 @@ export function TypeLabourEditor({
   onUpsert,
   onRemove,
   onStatutory,
+  defaultOpen = true,
 }: {
   type: string;
   roles: V2LabourRole[];
@@ -25,85 +32,178 @@ export function TypeLabourEditor({
   onUpsert: (role: V2LabourRole) => void;
   onRemove: (id: string) => void;
   onStatutory: (patch: Partial<V2Statutory>) => void;
+  defaultOpen?: boolean;
 }) {
-  return (
-    <div className="rounded border border-dashed border-outline-variant p-3">
-      <p className="mb-2 text-body-sm font-medium">Labour roles for {type}</p>
-      <div className="mb-3 grid gap-2 sm:grid-cols-5">
-        {(
-          [
-            ["pfPct", "PF %"],
-            ["esicPct", "ESIC %"],
-            ["bonusPct", "Bonus %"],
-            ["gratuityPct", "Gratuity %"],
-            ["leaveReservePct", "Leave %"],
-          ] as const
-        ).map(([key, label]) => (
-          <Num
-            key={key}
-            label={label}
-            value={statutory[key]}
-            step={0.01}
-            onChange={(v) => onStatutory({ [key]: v })}
-          />
-        ))}
-      </div>
-      <div className="mb-2 flex flex-wrap gap-2">
-        {LABOUR_ROLE_SUGGESTIONS.map((sug) => (
-          <V2SecondaryButton
-            key={sug.name}
-            type="button"
-            onClick={() => onUpsert(createLabourRole(sug.name, sug))}
-          >
-            + {sug.name}
-          </V2SecondaryButton>
-        ))}
-      </div>
-      {roles.map((role) => (
-        <div
-          key={role.id}
-          className="mb-2 grid gap-2 rounded bg-surface-lowest p-2 sm:grid-cols-4"
-        >
-          <V2Field label="Role">
-            <V2Input
+  const columns = useMemo<PlantColumnDef<V2LabourRole>[]>(
+    () => [
+      {
+        id: "name",
+        header: "Role",
+        size: 180,
+        minSize: 140,
+        cell: ({ row }) => {
+          const role = row.original;
+          return (
+            <TableCellInput
+              aria-label="Role"
               value={role.name}
-              onChange={(e) => onUpsert({ ...role, name: e.target.value })}
+              onChange={(v) => onUpsert({ ...role, name: v })}
             />
-          </V2Field>
-          {role.payBasis === "monthly" ? (
-            <Num
-              label="Salary / mo"
-              value={role.monthlySalary}
-              onChange={(v) => onUpsert({ ...role, monthlySalary: v })}
-            />
-          ) : (
-            <Num
-              label="Day rate (8h)"
+          );
+        },
+      },
+      {
+        id: "pay",
+        header: "Pay",
+        size: 150,
+        minSize: 120,
+        cell: ({ row }) => {
+          const role = row.original;
+          if (role.payBasis === "monthly") {
+            return (
+              <TableCellInput
+                type="number"
+                aria-label="Salary per month"
+                className="bg-surface-low/50 font-mono"
+                value={role.monthlySalary}
+                onChange={(v) =>
+                  onUpsert({ ...role, monthlySalary: Number(v) || 0 })
+                }
+              />
+            );
+          }
+          return (
+            <TableCellInput
+              type="number"
+              aria-label="Day rate for 8h"
+              className="bg-surface-low/50 font-mono"
               value={role.dayRateFor8h}
-              onChange={(v) => onUpsert({ ...role, dayRateFor8h: v })}
+              onChange={(v) =>
+                onUpsert({ ...role, dayRateFor8h: Number(v) || 0 })
+              }
             />
-          )}
-          <Num
-            label="Machines / head"
-            value={role.machinesPerHead}
-            onChange={(v) => onUpsert({ ...role, machinesPerHead: v })}
-          />
-          <div className="flex items-end">
-            <button
-              type="button"
-              className="text-body-sm text-error"
-              onClick={() => onRemove(role.id)}
+          );
+        },
+      },
+      {
+        id: "payBasis",
+        header: "Basis",
+        size: 120,
+        minSize: 100,
+        cell: ({ row }) => {
+          const role = row.original;
+          return (
+            <select
+              aria-label="Pay basis"
+              className="h-9 w-full min-w-0 rounded-sm border border-outline-variant bg-surface px-2 text-body-sm"
+              value={role.payBasis}
+              onChange={(e) =>
+                onUpsert({
+                  ...role,
+                  payBasis: e.target.value as V2LabourRole["payBasis"],
+                })
+              }
             >
-              Remove
-            </button>
-          </div>
-        </div>
-      ))}
-      <p className="text-body-sm text-on-surface-variant">
-        {machineCount === 0
+              <option value="monthly">₹ / mo</option>
+              <option value="day_for_8h">₹ / day</option>
+            </select>
+          );
+        },
+      },
+      {
+        id: "machinesPerHead",
+        header: "Machines / head",
+        size: 130,
+        minSize: 110,
+        cell: ({ row }) => {
+          const role = row.original;
+          return (
+            <TableCellInput
+              type="number"
+              aria-label="Machines per head"
+              className="font-mono"
+              value={role.machinesPerHead}
+              step={0.1}
+              onChange={(v) =>
+                onUpsert({ ...role, machinesPerHead: Number(v) || 0 })
+              }
+            />
+          );
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        size: 48,
+        minSize: 44,
+        cell: ({ row }) => (
+          <RemoveIconButton
+            label={`Remove ${row.original.name || "role"}`}
+            onClick={() => onRemove(row.original.id)}
+          />
+        ),
+      },
+    ],
+    [onUpsert, onRemove],
+  );
+
+  return (
+    <CollapsibleBlock
+      accent="labour"
+      defaultOpen={defaultOpen}
+      title={`Labour · ${type}`}
+      subtitle={
+        machineCount === 0
           ? "No machines of this type yet — add one below."
-          : `Allocated across ${machineCount} ${type} machine(s).`}
-      </p>
-    </div>
+          : `${roles.length} role(s) · across ${machineCount} ${type}`
+      }
+      headerRight={
+        <>
+          {LABOUR_ROLE_SUGGESTIONS.map((sug) => (
+            <V2SecondaryButton
+              key={sug.name}
+              type="button"
+              onClick={() => onUpsert(createLabourRole(sug.name, sug))}
+            >
+              + {sug.name}
+            </V2SecondaryButton>
+          ))}
+        </>
+      }
+    >
+      <div className="rounded-md bg-surface-low/70 px-2.5 py-2">
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-on-surface-variant">
+          Statutory loads (plant-wide)
+        </p>
+        <div className="grid gap-2 sm:grid-cols-5">
+          {(
+            [
+              ["pfPct", "PF %"],
+              ["esicPct", "ESIC %"],
+              ["bonusPct", "Bonus %"],
+              ["gratuityPct", "Gratuity %"],
+              ["leaveReservePct", "Leave %"],
+            ] as const
+          ).map(([key, label]) => (
+            <Num
+              key={key}
+              label={label}
+              value={statutory[key]}
+              step={0.01}
+              onChange={(v) => onStatutory({ [key]: v })}
+            />
+          ))}
+        </div>
+      </div>
+
+      <DataTable
+        dense
+        data={roles}
+        columns={columns}
+        getRowId={(row) => row.id}
+        minWidth={640}
+        empty="No labour roles yet — add Operator, Helper, or another role."
+      />
+    </CollapsibleBlock>
   );
 }

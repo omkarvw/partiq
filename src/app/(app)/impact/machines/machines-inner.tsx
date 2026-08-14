@@ -16,14 +16,21 @@ import { ConfirmDialog } from "@/components/plant/ConfirmDialog";
 import {
   machineProductiveHours,
   overheadAnnualPerMachine,
+  syncMachineMaintenance,
   syncMachineUtilityAnnual,
 } from "@/lib/v2/clientDb";
+import { machineTabMoneyDirty } from "@/lib/v2/impactDirty";
+import {
+  machinesAfterUtilityAdd,
+  machinesAfterUtilityRemove,
+} from "@/lib/v2/utilityStructure";
 
 export default function ImpactMachinesPageInner() {
   const searchParams = useSearchParams();
   const {
     draft,
-    dirty,
+    baselineSnap,
+    moneyDirty,
     focusType,
     setFocusType,
     focusMachineId,
@@ -35,6 +42,7 @@ export default function ImpactMachinesPageInner() {
     removeDraftMachine,
     setLabourForType,
     patchFocusedMachines,
+    replaceDraftMachines,
     upsertLabourRole,
     removeLabourRole,
     setStatutory,
@@ -50,28 +58,44 @@ export default function ImpactMachinesPageInner() {
   }, [searchParams]);
 
   const types = Array.from(new Set(draft.machines.map((m) => m.type)));
-  const machinesOfType = draft.machines.filter((m) => m.type === focusType);
+  const sections = draft.sections ?? [];
   const machine = draft.machines.find((m) => m.id === focusMachineId);
+
+  const browseSectionId = machine?.sectionId ?? sections[0]?.id ?? "";
+  const machinesInSection = draft.machines.filter((m) =>
+    browseSectionId ? m.sectionId === browseSectionId : !m.sectionId,
+  );
+  const typesInSection = Array.from(
+    new Set(machinesInSection.map((m) => m.type)),
+  );
+  const effectiveType =
+    focusType && typesInSection.includes(focusType)
+      ? focusType
+      : typesInSection[0] ?? types[0] ?? "";
+  const machinesOfType = machinesInSection.filter(
+    (m) => m.type === effectiveType,
+  );
   const ohPerMachine = overheadAnnualPerMachine(
     draft.overheadLines,
     draft.machines.length || 1,
   );
-  const typeCount = machinesOfType.length;
-  const sections = draft.sections ?? [];
+  const typeCount = draft.machines.filter((m) => m.type === effectiveType)
+    .length;
+  const showMoneyChanged = moneyDirty.machines || moneyDirty.labour;
 
   return (
     <Section
       title="Machines"
       body="Calendar, EMI, labour, utility, and maintenance for the focus machine. Labour roles apply to every machine of this type."
     >
-      {dirty.machines || dirty.labour ? (
-        <p className="mb-3 inline-flex items-center gap-2 text-body-sm text-amber-700">
+      {showMoneyChanged ? (
+        <p className="mb-3 inline-flex items-center gap-2 text-body-sm text-amber-800">
           <span className="impact-dirty-light" />
-          Changed vs live — still exploring
+          Cost inputs changed vs live — still exploring
         </p>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <V2PrimaryButton type="button" onClick={() => setAddOpen(true)}>
           <Plus className="mr-1 inline h-4 w-4" />
           Add machine
@@ -80,7 +104,7 @@ export default function ImpactMachinesPageInner() {
           <button
             type="button"
             onClick={() => setRemoveOpen(true)}
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-body-sm text-on-surface-variant hover:border-error/40 hover:text-error"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-outline-variant px-3 text-body-sm text-on-surface-variant hover:border-error/40 hover:text-error"
           >
             <Trash2 className="h-4 w-4" />
             Remove this machine
@@ -88,21 +112,53 @@ export default function ImpactMachinesPageInner() {
         ) : null}
       </div>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <V2Field label="Machine type">
+      <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <V2Field label="Section">
           <V2Select
-            value={focusType}
+            value={browseSectionId}
+            onChange={(e) => {
+              const nextSec = e.target.value || null;
+              const inSec = draft.machines.filter((m) =>
+                nextSec ? m.sectionId === nextSec : !m.sectionId,
+              );
+              const pick =
+                inSec.find((m) => m.type === focusType) ?? inSec[0] ?? null;
+              if (pick) {
+                setFocusType(pick.type);
+                setFocusMachineId(pick.id);
+              } else if (machine && nextSec) {
+                // Move focused machine into empty section
+                upsertDraftMachine({ ...machine, sectionId: nextSec });
+              }
+            }}
+            disabled={sections.length === 0}
+          >
+            {sections.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+            {draft.machines.some((m) => !m.sectionId) ? (
+              <option value="">Unassigned</option>
+            ) : null}
+          </V2Select>
+        </V2Field>
+        <V2Field label="Type">
+          <V2Select
+            value={effectiveType}
             onChange={(e) => {
               const type = e.target.value;
               setFocusType(type);
-              const first = draft.machines.find((m) => m.type === type);
+              const first =
+                machinesInSection.find((m) => m.type === type) ??
+                draft.machines.find((m) => m.type === type);
               if (first) setFocusMachineId(first.id);
             }}
           >
-            {types.length === 0 ? (
+            {(typesInSection.length ? typesInSection : types).length === 0 ? (
               <option value="">No types yet</option>
             ) : (
-              types.map((type) => (
+              (typesInSection.length ? typesInSection : types).map((type) => (
                 <option key={type} value={type}>
                   {type}
                 </option>
@@ -110,12 +166,20 @@ export default function ImpactMachinesPageInner() {
             )}
           </V2Select>
         </V2Field>
-        <V2Field label="Focus machine">
+        <V2Field label="Machine">
           <V2Select
             value={focusMachineId}
-            onChange={(e) => setFocusMachineId(e.target.value)}
+            onChange={(e) => {
+              const id = e.target.value;
+              setFocusMachineId(id);
+              const m = draft.machines.find((x) => x.id === id);
+              if (m) setFocusType(m.type);
+            }}
           >
-            {machinesOfType.map((m) => (
+            {(machinesOfType.length
+              ? machinesOfType
+              : draft.machines.filter((m) => m.type === effectiveType)
+            ).map((m) => (
               <option key={m.id} value={m.id}>
                 {m.name}
               </option>
@@ -123,7 +187,7 @@ export default function ImpactMachinesPageInner() {
           </V2Select>
         </V2Field>
         <V2Field label="Apply field changes to">
-          <div className="flex min-h-11 flex-col justify-center gap-2">
+          <div className="flex min-h-11 flex-col justify-center gap-1.5">
             <label className="flex cursor-pointer items-center gap-2 text-body-sm">
               <input
                 type="radio"
@@ -138,7 +202,7 @@ export default function ImpactMachinesPageInner() {
                 checked={applyScope === "type"}
                 onChange={() => setApplyScope("type")}
               />
-              All {focusType || "type"} ({typeCount})
+              All {effectiveType || "type"} ({typeCount})
             </label>
           </div>
         </V2Field>
@@ -146,34 +210,14 @@ export default function ImpactMachinesPageInner() {
 
       {machine ? (
         <>
-          {sections.length > 0 ? (
-            <div className="mb-3 max-w-xs">
-              <V2Field label="Section">
-                <V2Select
-                  value={machine.sectionId ?? ""}
-                  onChange={(e) =>
-                    upsertDraftMachine({
-                      ...machine,
-                      sectionId: e.target.value || null,
-                    })
-                  }
-                >
-                  <option value="">Unassigned</option>
-                  {sections.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </V2Select>
-              </V2Field>
-            </div>
-          ) : null}
           <div className="mb-3 flex flex-wrap gap-1">
             {IMPACT_MACHINE_SECTIONS.map((sec) => {
-              const tabDirty =
-                sec === "labour"
-                  ? dirty.labour
-                  : sec !== "calendar" && dirty.machines;
+              const tabDirty = machineTabMoneyDirty(
+                baselineSnap,
+                draft,
+                machine.id,
+                sec,
+              );
               return (
                 <button
                   key={sec}
@@ -199,13 +243,33 @@ export default function ImpactMachinesPageInner() {
             hours={machineProductiveHours(machine)}
             ctx={draft}
             ohPerMachine={ohPerMachine}
+            typePeerCount={typeCount}
             onUpsertLabourRole={(role) =>
               upsertLabourRole(machine.type, role)
             }
             onRemoveLabourRole={(id) => removeLabourRole(machine.type, id)}
             onStatutory={setStatutory}
+            onUtilityStructure={(action, scope) => {
+              const next =
+                action.kind === "add"
+                  ? machinesAfterUtilityAdd(
+                      draft.machines,
+                      machine.id,
+                      action.line,
+                      scope,
+                    )
+                  : machinesAfterUtilityRemove(
+                      draft.machines,
+                      machine.id,
+                      action.line,
+                      scope,
+                    );
+              replaceDraftMachines(next);
+            }}
             onChange={(next) => {
-              const synced = syncMachineUtilityAnnual(next);
+              const synced = syncMachineMaintenance(
+                syncMachineUtilityAnnual(next),
+              );
               if (applyScope === "machine") {
                 upsertDraftMachine(synced);
                 return;
@@ -215,7 +279,7 @@ export default function ImpactMachinesPageInner() {
               upsertDraftMachine({ ...machine, ...shared, name });
             }}
           />
-          <p className="mt-3 text-body-sm text-on-surface-variant">
+          <p className="mt-3 text-[11px] text-on-surface-variant">
             {section === "labour"
               ? `Labour roles apply to all ${typeCount} ${focusType || "type"} machine(s).`
               : `Field edits apply to ${

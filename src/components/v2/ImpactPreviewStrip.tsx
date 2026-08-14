@@ -78,15 +78,15 @@ export function ImpactPreviewStrip() {
   const pathname = usePathname();
   const {
     isDirty,
-    dirty,
-    dirtyTotal,
+    moneyDirty,
+    moneyDirtyTotal,
     focusMachineId,
     draftBreakups,
     liveBreakups,
     draft,
   } = useImpactDraft();
 
-  if (!isDirty) return null;
+  if (!isDirty || moneyDirtyTotal === 0) return null;
 
   const machine = draft.machines.find((m) => m.id === focusMachineId);
   const live = focusMachineId ? liveBreakups[focusMachineId] : null;
@@ -95,7 +95,10 @@ export function ImpactPreviewStrip() {
   const draftMhr = draftB?.manufacturingMhr ?? 0;
   const deltaMhr = draftMhr - liveMhr;
 
-  const head = primaryChangedHead(dirty, live, draftB);
+  // Section-only / org moves: MHR unchanged — don’t flash the amber strip
+  if (Math.abs(deltaMhr) < 0.005 && moneyDirtyTotal === 0) return null;
+
+  const head = primaryChangedHead(moneyDirty, live, draftB);
   const liveHead = live && head ? head.pick(live) : null;
   const draftHead = draftB && head ? head.pick(draftB) : null;
   const deltaHead =
@@ -115,7 +118,7 @@ export function ImpactPreviewStrip() {
     <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3">
       <div className="min-w-0">
         <p className="text-body-sm font-medium text-on-surface">
-          {dirtyTotal} cost area{dirtyTotal === 1 ? "" : "s"} changed
+          {moneyDirtyTotal} cost area{moneyDirtyTotal === 1 ? "" : "s"} changed
           {machine ? ` · ${machine.name}` : ""}
         </p>
         <p className="mt-0.5 text-body-sm text-on-surface-variant">

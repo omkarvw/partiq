@@ -9,7 +9,7 @@ import {
   V2SecondaryButton,
   V2Select,
 } from "@/components/v2/V2Ui";
-import { Num } from "@/components/v2/editors/EditorPrimitives";
+import { Num, RemoveIconButton } from "@/components/v2/editors/EditorPrimitives";
 import {
   createLabourRole,
   defaultLabourRoles,
@@ -156,6 +156,9 @@ export function AddMachineModal({
         interestRatePct,
         tenureYears,
         powerKw,
+        maintenanceAmcAnnual: maintenanceAnnual,
+        maintenancePmAnnual: 0,
+        maintenanceSparesAnnual: 0,
         maintenanceAnnual,
       },
     });
@@ -321,17 +324,14 @@ export function AddMachineModal({
                     }
                   />
                   <div className="flex items-end">
-                    <button
-                      type="button"
-                      className="min-h-11 text-body-sm text-error"
+                    <RemoveIconButton
+                      label={`Remove ${role.name || "role"}`}
                       onClick={() =>
                         setRoles((prev) =>
                           prev.filter((r) => r.id !== role.id),
                         )
                       }
-                    >
-                      Remove
-                    </button>
+                    />
                   </div>
                 </div>
               ))}

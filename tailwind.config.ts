@@ -47,6 +47,19 @@ export default {
         "inverse-on-surface": "#e9f1ff",
         estimated: "#94a3b8",
         actual: "#00685f",
+        /** Brass — money totals / Cash MHR that should pop (not purple, not cream-terracotta). */
+        accent: "#a16207",
+        "accent-container": "#fef3c7",
+        "on-accent": "#ffffff",
+        "on-accent-container": "#422006",
+        /** Steel blue — secondary rails / table headers / info panes. */
+        info: "#1e4d6b",
+        "info-container": "#e2eef5",
+        "on-info": "#ffffff",
+        "on-info-container": "#0c2a3d",
+        /** Soft fill for ₹ input cells. */
+        "money-tint": "#f4faf8",
+        signal: "#c27803",
       },
       fontFamily: {
         sans: ["var(--font-public-sans)", "system-ui", "sans-serif"],

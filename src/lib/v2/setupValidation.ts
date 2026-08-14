@@ -101,11 +101,23 @@ export function machineIssues(machine: V2MachineDraft): FieldIssue[] {
 }
 
 export function machinesStepIssues(record: V2ClientRecord): FieldIssue[] {
+  const namedSections = (record.sections ?? []).filter((s) =>
+    s.name.trim(),
+  );
+  if (namedSections.length === 0) {
+    return [
+      {
+        key: "sections",
+        label: "Create at least one section, then add machines into it",
+        severity: "error",
+      },
+    ];
+  }
   if (record.machines.length === 0) {
     return [
       {
         key: "machines",
-        label: "Add at least one machine",
+        label: "Add at least one machine under a section",
         severity: "error",
       },
     ];

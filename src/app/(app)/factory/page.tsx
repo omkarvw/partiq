@@ -129,7 +129,7 @@ export default function FactoryPulsePage() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href="/impact">
+            <Link href="/master-data">
               <Button variant="secondary">What if we change…</Button>
             </Link>
             <Button
@@ -148,46 +148,44 @@ export default function FactoryPulsePage() {
         </div>
       </Reveal>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <Reveal>
-          {composition ? (
-            <CostCompositionPanel
-              composition={composition}
-              breakups={breakups}
-              machineNames={machineNames}
-              utilityDetail={utilityDetail}
-              overheadDetail={overheadDetail}
-            />
-          ) : (
-            <div className="rounded-xl border border-dashed border-outline-variant p-8 text-body-sm text-on-surface-variant">
-              Add machines in setup or here to see plant cost.
-            </div>
-          )}
-        </Reveal>
-
-        <Reveal>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-            <Metric
-              label="Blended Cash MHR"
-              value={plantKpis?.blendedMhr ?? 0}
-              format={(v) => `${formatInr(v)}/hr`}
-            />
-            <Metric
-              label="Machines"
-              value={plantKpis?.machineCount ?? 0}
-              format={(v) => `${Math.round(v)}`}
-            />
-            <Metric
-              label="Avg utilization"
-              value={plantKpis?.utilizationPct ?? 0}
-              format={(v) => `${v.toFixed(0)}%`}
-            />
-          </div>
-        </Reveal>
-      </div>
+      <Reveal>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Metric
+            label="Blended Cash MHR"
+            value={plantKpis?.blendedMhr ?? 0}
+            format={(v) => `${formatInr(v)}/hr`}
+          />
+          <Metric
+            label="Machines"
+            value={plantKpis?.machineCount ?? 0}
+            format={(v) => `${Math.round(v)}`}
+          />
+          <Metric
+            label="Avg utilization"
+            value={plantKpis?.utilizationPct ?? 0}
+            format={(v) => `${v.toFixed(0)}%`}
+          />
+        </div>
+      </Reveal>
 
       <Reveal>
-        <div className="rounded-xl border border-outline-variant bg-surface-lowest p-5">
+        {composition ? (
+          <CostCompositionPanel
+            composition={composition}
+            breakups={breakups}
+            machineNames={machineNames}
+            utilityDetail={utilityDetail}
+            overheadDetail={overheadDetail}
+          />
+        ) : (
+          <div className="rounded-lg border border-dashed border-outline-variant p-8 text-body-sm text-on-surface-variant">
+            Add machines in setup or here to see plant cost.
+          </div>
+        )}
+      </Reveal>
+
+      <Reveal>
+        <div className="rounded-lg border border-outline-variant bg-surface-lowest p-5">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <h3 className="text-headline-sm text-on-surface">Machines</h3>
@@ -198,7 +196,7 @@ export default function FactoryPulsePage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <select
-                className="min-h-11 rounded-lg border border-outline-variant bg-surface px-3 text-body-sm"
+                className="min-h-11 rounded-sm border border-outline-variant bg-surface px-3 text-body-sm"
                 value={sectionFilter}
                 onChange={(e) => setSectionFilter(e.target.value)}
               >
@@ -211,7 +209,7 @@ export default function FactoryPulsePage() {
                 <option value="unassigned">Unassigned</option>
               </select>
               <input
-                className="min-h-11 rounded-lg border border-outline-variant bg-surface px-3 text-body-sm"
+                className="min-h-11 rounded-sm border border-outline-variant bg-surface px-3 text-body-sm"
                 placeholder="New section name"
                 value={newSectionName}
                 onChange={(e) => setNewSectionName(e.target.value)}
@@ -330,7 +328,7 @@ function Metric({
   format: (v: number) => string;
 }) {
   return (
-    <div className="rounded-xl border border-outline-variant bg-surface-lowest px-4 py-3">
+    <div className="rounded-lg border border-outline-variant bg-surface-lowest px-4 py-3">
       <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-on-surface-variant">
         {label}
       </p>

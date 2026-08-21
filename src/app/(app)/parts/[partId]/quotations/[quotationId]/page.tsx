@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -23,24 +24,56 @@ import {
   usePart,
   useQuotation,
 } from "@/lib/commercial/useClientEntity";
+import { useV2Graph } from "@/components/v2/V2GraphProvider";
+import { computePartEconomics } from "@/lib/factory/selectors";
 
 export default function QuotationDetailPage() {
   const params = useParams<{ partId: string; quotationId: string }>();
   const ready = useOverlayReady(params.quotationId);
   const part = usePart(params.partId);
   const quotation = useQuotation(params.quotationId);
+  const { breakups, record } = useV2Graph();
+  const [tick, setTick] = useState(0);
+
+  useEffect(() => {
+    const bump = () => setTick((t) => t + 1);
+    window.addEventListener("partiq-story-refresh", bump);
+    window.addEventListener("storage", bump);
+    return () => {
+      window.removeEventListener("partiq-story-refresh", bump);
+      window.removeEventListener("storage", bump);
+    };
+  }, []);
+
+  const responses = useMemo(() => {
+    void tick;
+    return getResponsesForQuotation(params.quotationId);
+  }, [params.quotationId, tick]);
+
+  const livePartCost = useMemo(() => {
+    if (!part) return null;
+    return computePartEconomics(
+      part.id,
+      breakups,
+      record.machines,
+      record.materialGrades ?? [],
+    );
+  }, [part, breakups, record.machines, record.materialGrades]);
+
   if (!ready) return <EntityLoading />;
   if (!part || !quotation || quotation.partId !== params.partId) {
     return <EntityMissing label="Quotation not found" />;
   }
 
   const enquiry = getEnquiry(quotation.enquiryId);
-  const responses = getResponsesForQuotation(quotation.id);
   const lineTotal = quotation.unitPrice * quotation.quantity;
-  const marginHint =
-    quotation.costBasis != null && quotation.costBasis > 0
-      ? ((quotation.unitPrice - quotation.costBasis) / quotation.costBasis) * 100
+  const costForMargin = livePartCost?.totalCost ?? quotation.costBasis ?? null;
+  const grossOnPrice =
+    costForMargin != null && quotation.unitPrice > 0
+      ? ((quotation.unitPrice - costForMargin) / quotation.unitPrice) * 100
       : null;
+  const spread =
+    costForMargin != null ? quotation.unitPrice - costForMargin : null;
 
   return (
     <div className="p-8">
@@ -62,9 +95,14 @@ export default function QuotationDetailPage() {
             <StatusChip status={quotation.status} />
           </div>
           <p className="text-body-md text-on-surface-variant">
-            Quotation for {part.code}
+            Quote for{" "}
+            <span className="font-mono text-on-surface">{part.code}</span>
             {enquiry ? (
               <>
+                {" → "}
+                <span className="font-medium text-on-surface">
+                  {enquiry.customer}
+                </span>
                 {" · "}
                 <Link
                   href={`/parts/${part.id}/enquiries/${enquiry.id}`}
@@ -73,9 +111,15 @@ export default function QuotationDetailPage() {
                   {enquiry.reference}
                 </Link>
               </>
-            ) : null}
+            ) : (
+              <> · {part.customer}</>
+            )}
             {" · "}
             {quotation.createdAt} by {quotation.createdBy}
+          </p>
+          <p className="mt-1 max-w-2xl text-[12px] text-on-surface-variant">
+            Same part can carry different unit prices per customer enquiry —
+            margin is always vs this part&apos;s live cost.
           </p>
         </div>
         <div className="flex gap-2">
@@ -86,26 +130,48 @@ export default function QuotationDetailPage() {
             <QuotationActions
               quotationId={quotation.id}
               quotationLabel={`${quotation.quoteNumber} · ${formatInr(quotation.unitPrice)}`}
+              onSaved={() => setTick((t) => t + 1)}
             />
           </div>
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <MiniKpi label="Unit price" value={formatInr(quotation.unitPrice)} />
-        <MiniKpi label="Line total" value={formatInr(lineTotal)} />
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MiniKpi
-          label="vs process cost"
+          label="Quoted unit price"
+          value={formatInr(quotation.unitPrice)}
+          hint={`× ${quotation.quantity} = ${formatInr(lineTotal)}`}
+        />
+        <MiniKpi
+          label="Live part cost"
           value={
-            marginHint === null
-              ? "—"
-              : `${marginHint >= 0 ? "+" : ""}${marginHint.toFixed(1)}%`
+            livePartCost ? formatInr(livePartCost.totalCost) : formatInr(0)
           }
           hint={
-            quotation.costBasis != null
-              ? `Cost basis ${formatInr(quotation.costBasis)}`
-              : undefined
+            livePartCost
+              ? `Process ${formatInr(livePartCost.estCost)} · Material ${formatInr(livePartCost.materialCost)}`
+              : quotation.costBasis != null
+                ? `Snapshot ${formatInr(quotation.costBasis)}`
+                : undefined
           }
+        />
+        <MiniKpi
+          label="Price − cost"
+          value={
+            spread == null
+              ? "—"
+              : `${spread >= 0 ? "+" : ""}${formatInr(spread)}`
+          }
+          hint="Per piece"
+        />
+        <MiniKpi
+          label="Gross margin"
+          value={
+            grossOnPrice == null
+              ? "—"
+              : `${grossOnPrice >= 0 ? "" : ""}${grossOnPrice.toFixed(1)}%`
+          }
+          hint="(Price − cost) ÷ price"
         />
       </div>
 
@@ -119,6 +185,10 @@ export default function QuotationDetailPage() {
         <div className="space-y-4 lg:col-span-2">
           <Panel title="Quotation details">
             <dl className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2">
+              <Detail
+                label="Customer (from enquiry)"
+                value={enquiry?.customer ?? part.customer}
+              />
               <Detail label="Quantity" value={String(quotation.quantity)} mono />
               <Detail
                 label="Lead time"
@@ -155,7 +225,8 @@ export default function QuotationDetailPage() {
         >
           {responses.length === 0 ? (
             <p className="p-4 text-body-sm text-on-surface-variant">
-              No responses logged yet.
+              No responses logged yet. Use Log Response to record accept /
+              reject / negotiate.
             </p>
           ) : (
             <ul className="divide-y divide-outline-variant/50">
@@ -172,7 +243,10 @@ export default function QuotationDetailPage() {
                       <StatusChip status={r.outcome} />
                     </div>
                     <p className="mt-1 line-clamp-2 text-body-sm text-on-surface">
-                      {r.notes}
+                      {r.notes || "No notes"}
+                      {r.counterPrice != null
+                        ? ` · Counter ${formatInr(r.counterPrice)}`
+                        : ""}
                     </p>
                   </Link>
                 </li>

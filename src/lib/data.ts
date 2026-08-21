@@ -16,6 +16,7 @@ import {
   readEnquiryOverlay,
   readPartOverlay,
   readQuoteOverlay,
+  readResponseOverlay,
 } from "./commercial/entityStore";
 
 export { ORG_LABEL, PLANT_NAME } from "./brand";
@@ -83,6 +84,11 @@ export const parts: Part[] = [
     customer: "HydraTech Global",
     description: "High-pressure manifold housing for hydraulic assembly.",
     status: "In Production",
+    materialCosting: {
+      materialGradeId: "grade-en1",
+      inputWeightKg: 2.4,
+      finishWeightKg: 1.75,
+    },
     partFiles: [
       {
         id: "pf1",
@@ -276,6 +282,11 @@ export const parts: Part[] = [
     customer: "AutoForge Pvt",
     description: "Lightweight bracket for EV brake assembly.",
     status: "Quoting",
+    materialCosting: {
+      materialGradeId: "grade-al6061",
+      inputWeightKg: 0.85,
+      finishWeightKg: 0.62,
+    },
     partFiles: [],
     processes: [
       {
@@ -311,6 +322,11 @@ export const parts: Part[] = [
     customer: "Internal",
     description: "Blank ready for secondary ops.",
     status: "Complete",
+    materialCosting: {
+      materialGradeId: "grade-en8",
+      inputWeightKg: 1.2,
+      finishWeightKg: 0.95,
+    },
     partFiles: [],
     processes: [
       {
@@ -805,11 +821,22 @@ export function getCustomerName(customerId: string): string {
 }
 
 export function getPartsForCustomer(customerId: string): Part[] {
-  return getAllParts().filter((p) => p.customerId === customerId);
+  const primary = getAllParts().filter((p) => p.customerId === customerId);
+  const viaRfq = getAllEnquiries()
+    .filter((e) => e.customerId === customerId)
+    .map((e) => getPart(e.partId))
+    .filter((p): p is Part => Boolean(p));
+  const byId = new Map<string, Part>();
+  for (const p of [...primary, ...viaRfq]) byId.set(p.id, p);
+  return Array.from(byId.values()).sort((a, b) =>
+    a.code.localeCompare(b.code),
+  );
 }
 
 export function getEnquiriesForCustomer(customerId: string): Enquiry[] {
-  return getAllEnquiries().filter((e) => e.customerId === customerId);
+  return getAllEnquiries()
+    .filter((e) => e.customerId === customerId)
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
 /**
@@ -903,16 +930,36 @@ export function getQuotation(quotationId: string): Quotation | undefined {
   return getAllQuotations().find((q) => q.id === quotationId);
 }
 
+export function getAllCustomerResponses(): CustomerResponse[] {
+  const overlay = readResponseOverlay();
+  if (getCommercialMode() === "story") {
+    return [...overlay].sort((a, b) =>
+      b.respondedAt.localeCompare(a.respondedAt),
+    );
+  }
+  if (overlay.length === 0) return customerResponses;
+  const byId = new Map<string, CustomerResponse>();
+  for (const r of customerResponses) byId.set(r.id, r);
+  for (const r of overlay) byId.set(r.id, r);
+  return Array.from(byId.values()).sort((a, b) =>
+    b.respondedAt.localeCompare(a.respondedAt),
+  );
+}
+
 export function getResponsesForPart(partId: string): CustomerResponse[] {
-  return customerResponses.filter((r) => r.partId === partId);
+  return getAllCustomerResponses().filter((r) => r.partId === partId);
 }
 
-export function getResponsesForQuotation(quotationId: string): CustomerResponse[] {
-  return customerResponses.filter((r) => r.quotationId === quotationId);
+export function getResponsesForQuotation(
+  quotationId: string,
+): CustomerResponse[] {
+  return getAllCustomerResponses().filter((r) => r.quotationId === quotationId);
 }
 
-export function getCustomerResponse(responseId: string): CustomerResponse | undefined {
-  return customerResponses.find((r) => r.id === responseId);
+export function getCustomerResponse(
+  responseId: string,
+): CustomerResponse | undefined {
+  return getAllCustomerResponses().find((r) => r.id === responseId);
 }
 
 export function getCommercialSummaryForPart(partId: string) {
@@ -962,9 +1009,9 @@ export function getCommercialPipelineSummary(): CommercialPipelineSummary {
       getAllQuotations().map((q) => ({ stage: q.status })),
       quotationStatuses,
     ),
-    responsesTotal: customerResponses.length,
+    responsesTotal: getAllCustomerResponses().length,
     responsesByOutcome: countByStage(
-      customerResponses.map((r) => ({ stage: r.outcome })),
+      getAllCustomerResponses().map((r) => ({ stage: r.outcome })),
       responseOutcomes,
     ),
   };

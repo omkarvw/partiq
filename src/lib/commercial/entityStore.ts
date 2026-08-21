@@ -1,10 +1,17 @@
-import type { Customer, Part, Quotation, Enquiry } from "@/lib/types";
+import type {
+  Customer,
+  CustomerResponse,
+  Part,
+  Quotation,
+  Enquiry,
+} from "@/lib/types";
 
 const MODE_KEY = "partiq-commercial-mode";
 const CUST_KEY = "partiq-customers-overlay-v1";
 const PART_KEY = "partiq-parts-overlay-v1";
 const ENQ_KEY = "partiq-enquiries-overlay-v1";
 const QUOTE_KEY = "partiq-quotes-overlay-v1";
+const RESP_KEY = "partiq-responses-overlay-v1";
 const EXCEPTION_KEY = "partiq-margin-exceptions-v1";
 const STORY_KEY = "partiq-story-progress-v1";
 
@@ -49,7 +56,8 @@ function writeJson(key: string, value: unknown) {
 
 export function getCommercialMode(): CommercialMode {
   const mode = readJson<CommercialMode | null>(MODE_KEY, null);
-  return mode === "seed" ? "seed" : "story";
+  if (mode === "story") return "story";
+  return "seed";
 }
 
 export function setCommercialMode(mode: CommercialMode) {
@@ -67,6 +75,10 @@ export function readEnquiryOverlay(): Enquiry[] {
 }
 export function readQuoteOverlay(): Quotation[] {
   return readJson(QUOTE_KEY, [] as Quotation[]);
+}
+
+export function readResponseOverlay(): CustomerResponse[] {
+  return readJson(RESP_KEY, [] as CustomerResponse[]);
 }
 
 export function upsertCustomer(customer: Customer) {
@@ -111,6 +123,24 @@ export function addQuotation(quote: Quotation): Quotation {
 
 export function upsertQuotation(quote: Quotation): Quotation {
   return addQuotation(quote);
+}
+
+export function addCustomerResponse(
+  response: CustomerResponse,
+): CustomerResponse {
+  const list = readResponseOverlay().filter((r) => r.id !== response.id);
+  list.push(response);
+  writeJson(RESP_KEY, list);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("partiq-story-refresh"));
+  }
+  return response;
+}
+
+export function upsertCustomerResponse(
+  response: CustomerResponse,
+): CustomerResponse {
+  return addCustomerResponse(response);
 }
 
 export function supersedeQuotationInOverlay(quote: Quotation): Quotation {
@@ -169,6 +199,7 @@ export function clearCommercialOverlays() {
   window.localStorage.removeItem(PART_KEY);
   window.localStorage.removeItem(ENQ_KEY);
   window.localStorage.removeItem(QUOTE_KEY);
+  window.localStorage.removeItem(RESP_KEY);
   window.localStorage.removeItem(EXCEPTION_KEY);
 }
 
@@ -262,7 +293,7 @@ export const STORY_STEPS: {
     id: "impact_change",
     title: "Change a plant parameter",
     body: "In Impact, edit with the same depth as setup — then Adopt.",
-    href: "/impact",
+    href: "/master-data",
   },
   {
     id: "urgent_act",

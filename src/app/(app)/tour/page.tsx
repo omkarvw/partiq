@@ -37,7 +37,7 @@ const SLIDES = [
   {
     id: "impact",
     icon: Zap,
-    title: "Impact lab",
+    title: "Master data",
     body: "Try adding machines for a prospect or changing power/wages. See insights immediately — without touching your live factory.",
     tags: ["What-if", "Add machines", "No fear"],
   },

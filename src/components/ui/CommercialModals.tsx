@@ -6,14 +6,20 @@ import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
 import { CustomFieldsEditor } from "@/components/ui/CustomFieldsEditor";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { FormField, FormSelect } from "@/components/ui/FormField";
 import {
   getAllCustomers,
+  getAllParts,
+  getCustomer,
   getEnquiry,
   getPart,
+  getQuotation,
 } from "@/lib/data";
 import {
   upsertEnquiry,
   addQuotation,
+  addCustomerResponse,
+  upsertPart,
 } from "@/lib/commercial/entityStore";
 import { markStory } from "@/components/story/StoryChecklist";
 import type {
@@ -22,6 +28,9 @@ import type {
   QuotationStatus,
   ResponseOutcome,
 } from "@/lib/types";
+import { useV2Graph } from "@/components/v2/V2GraphProvider";
+import { computePartEconomics } from "@/lib/factory/selectors";
+import { actorDisplayName, readSessionActor } from "@/lib/v2/sessionActor";
 
 function ModalShell({
   title,
@@ -62,39 +71,6 @@ function ModalShell({
   );
 }
 
-function Field({
-  label,
-  value,
-  onChange,
-  placeholder,
-  required,
-  type = "text",
-}: {
-  label: string;
-  value: string | number;
-  onChange: (v: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  type?: string;
-}) {
-  return (
-    <label className="block">
-      <span className="label-caps mb-1 block text-on-surface-variant">
-        {label}
-        {required ? " *" : ""}
-      </span>
-      <input
-        required={required}
-        type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="w-full rounded-sm border border-outline-variant bg-surface px-3 py-2 font-mono text-code-md focus:border-primary"
-      />
-    </label>
-  );
-}
-
 function SelectField<T extends string>({
   label,
   value,
@@ -107,68 +83,38 @@ function SelectField<T extends string>({
   options: readonly T[];
 }) {
   return (
-    <label className="block">
-      <span className="label-caps mb-1 block text-on-surface-variant">{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as T)}
-        className="w-full cursor-pointer rounded-sm border border-outline-variant bg-surface px-3 py-2 font-mono text-code-md focus:border-primary"
-      >
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}
-
-function CustomerSelect({
-  value,
-  onChange,
-  required,
-}: {
-  value: string;
-  onChange: (id: string) => void;
-  required?: boolean;
-}) {
-  const active = getAllCustomers().filter((c) => c.status === "Active");
-  return (
-    <label className="block">
-      <span className="label-caps mb-1 block text-on-surface-variant">
-        Customer{required ? " *" : ""}
-      </span>
-      <select
-        required={required}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full cursor-pointer rounded-sm border border-outline-variant bg-surface px-3 py-2 font-mono text-code-md focus:border-primary"
-      >
-        <option value="">Select customer…</option>
-        {active.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.code} — {c.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <FormSelect
+      label={label}
+      value={value}
+      onChange={(v) => onChange(v as T)}
+    >
+      {options.map((o) => (
+        <option key={o} value={o}>
+          {o}
+        </option>
+      ))}
+    </FormSelect>
   );
 }
 
 export function CreateEnquiryModal({
   open,
   onClose,
-  partId,
+  partId: partIdProp,
   defaultCustomerId,
+  lockCustomer = false,
 }: {
   open: boolean;
   onClose: () => void;
-  partId: string;
+  /** When set, RFQ is for this part. When omitted, user must pick a part. */
+  partId?: string;
   defaultCustomerId?: string;
+  /** Lock customer field (e.g. creating RFQ from a customer page). */
+  lockCustomer?: boolean;
 }) {
   const router = useRouter();
-  const part = getPart(partId);
+  const [selectedPartId, setSelectedPartId] = useState(partIdProp ?? "");
+  const part = getPart(selectedPartId);
   const [reference, setReference] = useState("");
   const [customerId, setCustomerId] = useState(
     defaultCustomerId ?? part?.customerId ?? "",
@@ -179,20 +125,34 @@ export function CreateEnquiryModal({
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<EnquiryStatus>("New");
   const [fields, setFields] = useState<CustomField[]>([]);
+  const [attempted, setAttempted] = useState(false);
 
-  if (!open || !part) return null;
+  if (!open) return null;
+
+  const partChoices = getAllParts().filter((p) => p.status !== "Inactive");
 
   return (
     <ModalShell title="New Enquiry (RFQ)" onClose={onClose} wide>
       <form
+        noValidate
         className="space-y-4 p-4"
         onSubmit={(e) => {
           e.preventDefault();
+          setAttempted(true);
+          const livePart = getPart(selectedPartId);
           const customer = getAllCustomers().find((c) => c.id === customerId);
-          if (!customer) return;
+          if (
+            !livePart ||
+            !reference.trim() ||
+            !customer ||
+            !(Number(quantity) > 0)
+          ) {
+            return;
+          }
+          const enquiryId = `enq-${Date.now()}`;
           upsertEnquiry({
-            id: `enq-${Date.now()}`,
-            partId: part.id,
+            id: enquiryId,
+            partId: livePart.id,
             reference: reference.trim() || `ENQ-${Date.now()}`,
             customerId: customer.id,
             customer: customer.name,
@@ -206,31 +166,89 @@ export function CreateEnquiryModal({
             customFields: fields,
           });
           onClose();
+          router.push(`/parts/${livePart.id}/enquiries/${enquiryId}`);
           router.refresh();
           if (typeof window !== "undefined") {
             window.dispatchEvent(new Event("partiq-story-refresh"));
           }
         }}
       >
+        <p className="rounded-sm border border-outline-variant bg-surface-low/50 px-3 py-2 text-[12px] text-on-surface-variant">
+          An RFQ always belongs to one part and one customer. Pick the part
+          you are quoting, then the buyer.
+        </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Field
+          {partIdProp ? (
+            <div className="sm:col-span-2">
+              <p className="label-caps mb-1 text-on-surface-variant">Part</p>
+              <p className="font-mono text-code-md text-on-surface">
+                {part?.code ?? partIdProp} · {part?.name}
+              </p>
+            </div>
+          ) : (
+            <FormSelect
+              className="sm:col-span-2"
+              label="Part"
+              value={selectedPartId}
+              onChange={setSelectedPartId}
+              required
+              attempted={attempted}
+            >
+              <option value="">Select part…</option>
+              {partChoices.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} — {p.name}
+                </option>
+              ))}
+            </FormSelect>
+          )}
+          <FormField
             label="Reference"
             value={reference}
             onChange={setReference}
             placeholder="ENQ-2026-070"
             required
+            attempted={attempted}
           />
-          <CustomerSelect
-            value={customerId}
-            onChange={setCustomerId}
-            required
-          />
-          <Field
+          {lockCustomer ? (
+            <div>
+              <p className="label-caps mb-1 text-on-surface-variant">
+                Customer
+              </p>
+              <p className="text-body-sm font-medium text-on-surface">
+                {getCustomer(customerId)?.name ?? "—"}
+              </p>
+            </div>
+          ) : (
+            <FormSelect
+              label="Customer"
+              value={customerId}
+              onChange={setCustomerId}
+              required
+              attempted={attempted}
+            >
+              <option value="">Select customer…</option>
+              {getAllCustomers()
+                .filter((c) => c.status === "Active")
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.code} — {c.name}
+                  </option>
+                ))}
+            </FormSelect>
+          )}
+          <FormField
             label="Quantity"
             value={quantity}
             onChange={setQuantity}
             type="number"
             required
+            attempted={attempted}
+            error={
+              attempted && !(Number(quantity) > 0)
+                ? "Enter a quantity greater than 0"
+                : null
+            }
           />
           <SelectField
             label="Status"
@@ -256,9 +274,106 @@ export function CreateEnquiryModal({
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit">
+          <Button type="submit" disabled={partChoices.length === 0 && !partIdProp}>
             <Plus className="h-4 w-4" />
             Save Enquiry
+          </Button>
+        </div>
+      </form>
+    </ModalShell>
+  );
+}
+
+/** Set a part’s primary customer (master link on the part). */
+export function LinkPartToCustomerModal({
+  open,
+  onClose,
+  customerId,
+  onCreateNewPart,
+}: {
+  open: boolean;
+  onClose: () => void;
+  customerId: string;
+  /** Opens create-part with this customer as primary. */
+  onCreateNewPart?: () => void;
+}) {
+  const router = useRouter();
+  const customer = getCustomer(customerId);
+  const [partId, setPartId] = useState("");
+  const [attempted, setAttempted] = useState(false);
+
+  if (!open || !customer) return null;
+
+  const candidates = getAllParts().filter(
+    (p) => p.status !== "Inactive" && p.customerId !== customerId,
+  );
+
+  return (
+    <ModalShell title={`Link part → ${customer.name}`} onClose={onClose}>
+      <form
+        noValidate
+        className="space-y-4 p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setAttempted(true);
+          const part = getPart(partId);
+          if (!part) return;
+          upsertPart({
+            ...part,
+            customerId: customer.id,
+            customer: customer.name,
+          });
+          onClose();
+          router.refresh();
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new Event("partiq-story-refresh"));
+          }
+        }}
+      >
+        <p className="text-body-sm text-on-surface-variant">
+          Sets this customer as the part&apos;s <strong>primary</strong> buyer.
+          To quote without changing primary, use New RFQ and pick the part.
+        </p>
+        <FormSelect
+          label="Part"
+          value={partId}
+          onChange={setPartId}
+          required
+          attempted={attempted}
+        >
+          <option value="">Select part…</option>
+          {candidates.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.code} — {p.name}
+              {p.customer ? ` (now: ${p.customer})` : ""}
+            </option>
+          ))}
+        </FormSelect>
+        {candidates.length === 0 ? (
+          <p className="text-body-sm text-on-surface-variant">
+            No other parts to re-link. Create a new part for this customer
+            instead.
+          </p>
+        ) : null}
+        {onCreateNewPart ? (
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onCreateNewPart();
+            }}
+            className="w-full rounded-sm border border-dashed border-outline-variant px-3 py-2.5 text-left text-body-sm font-medium text-primary hover:border-primary hover:bg-primary/5"
+          >
+            + Create new part for {customer.name}
+          </button>
+        ) : null}
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="ghost" type="button" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={candidates.length === 0}>
+            <Plus className="h-4 w-4" />
+            Link as primary
           </Button>
         </div>
       </form>
@@ -280,6 +395,7 @@ export function CreateQuotationModal({
   partId?: string;
 }) {
   const router = useRouter();
+  const { breakups, record } = useV2Graph();
   const [enquiryId, setEnquiryId] = useState(
     defaultEnquiryId ?? enquiryOptions[0]?.id ?? "",
   );
@@ -292,19 +408,36 @@ export function CreateQuotationModal({
   const [notes, setNotes] = useState("");
   const [status, setStatus] = useState<QuotationStatus>("Draft");
   const [fields, setFields] = useState<CustomField[]>([]);
+  const [attempted, setAttempted] = useState(false);
 
   if (!open) return null;
 
   return (
     <ModalShell title="New Quotation" onClose={onClose} wide>
       <form
+        noValidate
         className="space-y-4 p-4"
         onSubmit={(e) => {
           e.preventDefault();
+          setAttempted(true);
           const enquiry = getEnquiry(enquiryId);
           const partId = partIdProp ?? enquiry?.partId;
-          if (!partId || !enquiry) return;
+          if (
+            !partId ||
+            !enquiry ||
+            !quoteNumber.trim() ||
+            !(Number(unitPrice) > 0) ||
+            !(Number(quantity) > 0)
+          ) {
+            return;
+          }
           const quoteId = `quo-${Date.now()}`;
+          const eco = computePartEconomics(
+            partId,
+            breakups,
+            record.machines,
+            record.materialGrades ?? [],
+          );
           addQuotation({
             id: quoteId,
             partId,
@@ -320,6 +453,7 @@ export function CreateQuotationModal({
             terms: terms || "Net 30 · Ex-works",
             notes,
             status,
+            costBasis: eco?.totalCost,
             createdAt: new Date().toISOString().slice(0, 10),
             createdBy: "You",
             customFields: fields,
@@ -331,29 +465,33 @@ export function CreateQuotationModal({
         }}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block sm:col-span-2">
-            <span className="label-caps mb-1 block text-on-surface-variant">
-              Enquiry *
-            </span>
-            <select
-              required
-              value={enquiryId}
-              onChange={(e) => setEnquiryId(e.target.value)}
-              className="w-full cursor-pointer rounded-sm border border-outline-variant bg-surface px-3 py-2 font-mono text-code-md focus:border-primary"
-            >
-              {enquiryOptions.map((o) => (
+          <FormSelect
+            className="sm:col-span-2"
+            label="Enquiry"
+            value={enquiryId}
+            onChange={setEnquiryId}
+            required
+            attempted={attempted}
+          >
+            {enquiryOptions.length === 0 ? (
+              <option value="" disabled>
+                Create an enquiry first
+              </option>
+            ) : (
+              enquiryOptions.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.label}
                 </option>
-              ))}
-            </select>
-          </label>
-          <Field
+              ))
+            )}
+          </FormSelect>
+          <FormField
             label="Quote number"
             value={quoteNumber}
             onChange={setQuoteNumber}
             placeholder="Q-2026-000-A"
             required
+            attempted={attempted}
           />
           <SelectField
             label="Status"
@@ -361,21 +499,33 @@ export function CreateQuotationModal({
             onChange={setStatus}
             options={["Draft", "Sent", "Inactive"] as const}
           />
-          <Field
+          <FormField
             label="Unit price (₹)"
             value={unitPrice}
             onChange={setUnitPrice}
             type="number"
             required
+            attempted={attempted}
+            error={
+              attempted && !(Number(unitPrice) > 0)
+                ? "Enter a unit price greater than 0"
+                : null
+            }
           />
-          <Field
+          <FormField
             label="Quantity"
             value={quantity}
             onChange={setQuantity}
             type="number"
             required
+            attempted={attempted}
+            error={
+              attempted && !(Number(quantity) > 0)
+                ? "Enter a quantity greater than 0"
+                : null
+            }
           />
-          <Field
+          <FormField
             label="Lead time (days)"
             value={leadTimeDays}
             onChange={setLeadTimeDays}
@@ -387,7 +537,7 @@ export function CreateQuotationModal({
             onChange={setValidUntil}
           />
         </div>
-        <Field
+        <FormField
           label="Terms"
           value={terms}
           onChange={setTerms}
@@ -428,45 +578,84 @@ export function CreateResponseModal({
   quotationOptions: { id: string; label: string }[];
   defaultQuotationId?: string;
 }) {
+  const router = useRouter();
   const [quotationId, setQuotationId] = useState(
     defaultQuotationId ?? quotationOptions[0]?.id ?? "",
   );
   const [outcome, setOutcome] = useState<ResponseOutcome>("Accepted");
-  const [respondedAt, setRespondedAt] = useState("");
+  const [respondedAt, setRespondedAt] = useState(
+    () => new Date().toISOString().slice(0, 10),
+  );
   const [notes, setNotes] = useState("");
   const [revisedQty, setRevisedQty] = useState("");
   const [counterPrice, setCounterPrice] = useState("");
   const [fields, setFields] = useState<CustomField[]>([]);
+  const [attempted, setAttempted] = useState(false);
 
   if (!open) return null;
 
   return (
     <ModalShell title="Log Customer Response" onClose={onClose} wide>
       <form
+        noValidate
         className="space-y-4 p-4"
         onSubmit={(e) => {
           e.preventDefault();
+          setAttempted(true);
+          const quote = getQuotation(quotationId);
+          if (!quotationId || !quote) return;
+          const actor = readSessionActor();
+          const responseId = `resp-${Date.now()}`;
+          addCustomerResponse({
+            id: responseId,
+            partId: quote.partId,
+            quotationId: quote.id,
+            outcome,
+            respondedAt:
+              respondedAt || new Date().toISOString().slice(0, 10),
+            notes: notes.trim(),
+            revisedQty:
+              revisedQty.trim() !== ""
+                ? Number(revisedQty) || undefined
+                : undefined,
+            counterPrice:
+              counterPrice.trim() !== ""
+                ? Number(counterPrice) || undefined
+                : undefined,
+            createdBy: actorDisplayName(actor),
+            customFields: fields,
+          });
           onClose();
+          router.push(`/parts/${quote.partId}/responses/${responseId}`);
+          router.refresh();
         }}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block sm:col-span-2">
-            <span className="label-caps mb-1 block text-on-surface-variant">
-              Quotation *
-            </span>
-            <select
-              required
-              value={quotationId}
-              onChange={(e) => setQuotationId(e.target.value)}
-              className="w-full cursor-pointer rounded-sm border border-outline-variant bg-surface px-3 py-2 font-mono text-code-md focus:border-primary"
-            >
-              {quotationOptions.map((o) => (
+          <FormSelect
+            className="sm:col-span-2"
+            label="Quotation"
+            value={quotationId}
+            onChange={setQuotationId}
+            required
+            attempted={attempted}
+            error={
+              attempted && quotationId && !getQuotation(quotationId)
+                ? "Quotation not found"
+                : null
+            }
+          >
+            {quotationOptions.length === 0 ? (
+              <option value="" disabled>
+                Create a quotation first
+              </option>
+            ) : (
+              quotationOptions.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.label}
                 </option>
-              ))}
-            </select>
-          </label>
+              ))
+            )}
+          </FormSelect>
           <SelectField
             label="Outcome"
             value={outcome}
@@ -478,14 +667,14 @@ export function CreateResponseModal({
             value={respondedAt}
             onChange={setRespondedAt}
           />
-          <Field
+          <FormField
             label="Revised qty"
             value={revisedQty}
             onChange={setRevisedQty}
             type="number"
             placeholder="Optional"
           />
-          <Field
+          <FormField
             label="Counter price (₹)"
             value={counterPrice}
             onChange={setCounterPrice}
@@ -508,7 +697,7 @@ export function CreateResponseModal({
           <Button variant="ghost" type="button" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit">
+          <Button type="submit" disabled={quotationOptions.length === 0}>
             <Plus className="h-4 w-4" />
             Save Response
           </Button>

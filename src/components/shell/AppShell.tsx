@@ -1,29 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { Factory, Settings, Sparkles, Zap } from "lucide-react";
+import {
+  Factory,
+  Library,
+  Package,
+  Settings,
+  Siren,
+  Sparkles,
+  Users,
+} from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { motion } from "motion/react";
 import { PRODUCT_NAME } from "@/lib/brand";
 import { useV2Graph } from "@/components/v2/V2GraphProvider";
 import { PageMotion } from "@/components/motion/PageMotion";
 import { EASE } from "@/components/motion/motion-kit";
+import { listUrgentParts } from "@/lib/factory/selectors";
+import { MasterDataExploringReturnBanner } from "@/components/v2/MasterDataExploringReturnBanner";
+import { useImpactDraft } from "@/components/v2/ImpactDraftProvider";
 
 const primaryNav = [
   { href: "/factory", label: "Factory", icon: Factory },
-  { href: "/impact", label: "Impact", icon: Zap },
+  { href: "/master-data", label: "Master data", icon: Library },
+  { href: "/urgent", label: "Urgent", icon: Siren },
+  { href: "/parts", label: "Parts", icon: Package },
+  { href: "/customers", label: "Customers", icon: Users },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
-const HIDDEN_ROUTE_PREFIXES = [
-  "/dashboard",
-  "/urgent",
-  "/parts",
-  "/customers",
-  "/baselines",
-  "/capacity",
-];
+const HIDDEN_ROUTE_PREFIXES = ["/dashboard", "/baselines", "/capacity"];
 
 function isOnboardingPath(pathname: string) {
   return (
@@ -36,7 +43,13 @@ function isOnboardingPath(pathname: string) {
 
 function navActive(pathname: string, href: string) {
   if (href === "/factory") return pathname.startsWith("/factory");
-  if (href === "/impact") return pathname.startsWith("/impact");
+  if (href === "/master-data")
+    return (
+      pathname.startsWith("/master-data") || pathname.startsWith("/impact")
+    );
+  if (href === "/parts") return pathname.startsWith("/parts");
+  if (href === "/customers") return pathname.startsWith("/customers");
+  if (href === "/urgent") return pathname.startsWith("/urgent");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
@@ -46,12 +59,28 @@ function isHiddenProductPath(pathname: string) {
   );
 }
 
-/** Phase 1 shell — Factory Pulse + Impact Lab only. */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { ready, onboarded, record, resetClient } = useV2Graph();
+  const { ready, onboarded, record, resetClient, breakups } = useV2Graph();
+  const { isDirty: masterDataExploring } = useImpactDraft();
   const onboarding = isOnboardingPath(pathname);
+
+  const urgentCount = useMemo(() => {
+    if (!onboarded) return 0;
+    return listUrgentParts(
+      breakups,
+      record.plant.targetGrossMarginPct ?? 20,
+      record.machines,
+      record.materialGrades ?? [],
+    ).length;
+  }, [
+    onboarded,
+    breakups,
+    record.plant.targetGrossMarginPct,
+    record.machines,
+    record.materialGrades,
+  ]);
 
   useEffect(() => {
     if (!ready || onboarding || onboarded) return;
@@ -115,6 +144,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {primaryNav.map((item) => {
             const active = navActive(pathname, item.href);
             const Icon = item.icon;
+            const showUrgent =
+              item.href === "/urgent" && urgentCount > 0 && !active;
             return (
               <Link
                 key={item.href}
@@ -137,6 +168,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   strokeWidth={1.8}
                 />
                 <span className="relative z-10 flex-1">{item.label}</span>
+                {item.href === "/master-data" &&
+                masterDataExploring &&
+                !active ? (
+                  <span
+                    className="relative z-10 h-2 w-2 shrink-0 rounded-full bg-amber-600"
+                    title="Unfinished Master data changes"
+                    aria-label="Unfinished Master data changes"
+                  />
+                ) : null}
+                {showUrgent ? (
+                  <span className="relative z-10 min-w-5 rounded-full bg-error px-1.5 text-center font-mono text-[10px] font-semibold leading-5 text-on-error">
+                    {urgentCount}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
@@ -158,8 +203,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <p className="text-headline-sm font-bold tracking-tight text-on-surface">
           {record.plant.name}
         </p>
+        {urgentCount > 0 ? (
+          <Link
+            href="/urgent"
+            className="ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2.5 text-body-sm font-medium text-error hover:bg-error/10"
+          >
+            <Siren className="h-4 w-4" />
+            {urgentCount} urgent
+          </Link>
+        ) : null}
       </header>
       <main className="ml-sidebar min-h-screen pt-14">
+        <MasterDataExploringReturnBanner />
         <PageMotion>{children}</PageMotion>
       </main>
     </div>

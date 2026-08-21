@@ -21,9 +21,11 @@ export function QuotationLiveEconomics({
   partId: string;
 }) {
   const { breakups, record } = useV2Graph();
+  const grades = record.materialGrades ?? [];
   const eco = useMemo(
-    () => computeQuoteEconomics(quotationId, breakups, record.machines),
-    [quotationId, breakups, record.machines],
+    () =>
+      computeQuoteEconomics(quotationId, breakups, record.machines, grades),
+    [quotationId, breakups, record.machines, grades],
   );
   if (!eco) return null;
 
@@ -34,17 +36,29 @@ export function QuotationLiveEconomics({
         quoteNumber={quoteNumber}
         quoteHref={`/parts/${partId}/quotations/${quotationId}`}
       />
-      <Panel title="Plant-linked margin">
-        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-3">
+      <Panel title="Live cost vs quoted price">
+        <div className="grid grid-cols-1 gap-3 p-4 sm:grid-cols-5">
           <div>
-            <p className="label-caps text-on-surface-variant">Process cost</p>
+            <p className="label-caps text-on-surface-variant">Process</p>
+            <p className="mt-1 font-mono text-headline-sm tabular-nums">
+              {formatInr(eco.processCost)}
+            </p>
+          </div>
+          <div>
+            <p className="label-caps text-on-surface-variant">Material</p>
+            <p className="mt-1 font-mono text-headline-sm tabular-nums">
+              {formatInr(eco.materialCost)}
+            </p>
+          </div>
+          <div>
+            <p className="label-caps text-on-surface-variant">Part cost</p>
             <p className="mt-1 font-mono text-headline-sm tabular-nums">
               {formatInr(eco.costBasis)}
             </p>
           </div>
           <div>
-            <p className="label-caps text-on-surface-variant">Unit price</p>
-            <p className="mt-1 font-mono text-headline-sm tabular-nums">
+            <p className="label-caps text-on-surface-variant">Quoted price</p>
+            <p className="mt-1 font-mono text-headline-sm tabular-nums text-primary">
               {formatInr(eco.unitPrice)}
             </p>
           </div>
@@ -55,9 +69,8 @@ export function QuotationLiveEconomics({
                 ? "—"
                 : `${eco.grossMarginPct.toFixed(1)}%`}
             </p>
-            <p className="mt-1 text-body-sm text-on-surface-variant">
-              Markup on cost{" "}
-              {eco.markupPct == null ? "—" : `${eco.markupPct.toFixed(1)}%`}
+            <p className="mt-1 text-[11px] text-on-surface-variant">
+              vs live plant cost
             </p>
           </div>
         </div>
@@ -68,9 +81,10 @@ export function QuotationLiveEconomics({
 
 export function CommercialLiveBanner({ partId }: { partId: string }) {
   const { breakups, record } = useV2Graph();
+  const grades = record.materialGrades ?? [];
   const eco = useMemo(
-    () => computePartEconomics(partId, breakups, record.machines),
-    [partId, breakups, record.machines],
+    () => computePartEconomics(partId, breakups, record.machines, grades),
+    [partId, breakups, record.machines, grades],
   );
   const quotes = getQuotationsForPart(partId);
   const focus =
@@ -80,24 +94,22 @@ export function CommercialLiveBanner({ partId }: { partId: string }) {
   const qEco = useMemo(
     () =>
       focus
-        ? computeQuoteEconomics(focus.id, breakups, record.machines)
+        ? computeQuoteEconomics(focus.id, breakups, record.machines, grades)
         : null,
-    [focus, breakups, record.machines],
+    [focus, breakups, record.machines, grades],
   );
 
-  if (!eco && !qEco) return null;
+  if (!eco) return null;
 
   return (
     <div className="mb-6 space-y-3">
-      {eco ? (
-        <div className="rounded border border-outline-variant bg-surface-low px-4 py-3 text-body-sm text-on-surface-variant">
-          Current plant process cost for this part:{" "}
-          <span className="font-mono tabular-nums text-on-surface">
-            {formatInr(eco.estCost)}
-          </span>
-          . Quotation margins below use this live cost basis.
-        </div>
-      ) : null}
+      <div className="rounded-lg border border-outline-variant bg-surface-lowest px-4 py-3">
+        <p className="label-caps text-on-surface-variant">Live part cost</p>
+        <p className="mt-1 font-mono text-body-md tabular-nums text-on-surface">
+          Process {formatInr(eco.estCost)} · Material{" "}
+          {formatInr(eco.materialCost)} · Total {formatInr(eco.totalCost)}
+        </p>
+      </div>
       {focus && qEco ? (
         <QuoteMarginBanner
           economics={qEco}

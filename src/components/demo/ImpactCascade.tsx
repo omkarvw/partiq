@@ -108,7 +108,7 @@ export function ImpactCascade({
               <Link
                 href={href}
                 className={rowClass(tone, true)}
-                aria-label={`Edit ${step.label} in Impact lab`}
+                aria-label={`Edit ${step.label} in Master data`}
               >
                 {body}
               </Link>

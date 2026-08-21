@@ -9,9 +9,11 @@ import { QuotationStatusToggle } from "@/components/commercial/EntityStatusToggl
 export function QuotationActions({
   quotationId,
   quotationLabel,
+  onSaved,
 }: {
   quotationId: string;
   quotationLabel: string;
+  onSaved?: () => void;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -25,7 +27,10 @@ export function QuotationActions({
       {open ? (
         <CreateResponseModal
           open
-          onClose={() => setOpen(false)}
+          onClose={() => {
+            setOpen(false);
+            onSaved?.();
+          }}
           quotationOptions={[{ id: quotationId, label: quotationLabel }]}
           defaultQuotationId={quotationId}
         />

@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { History, Plus, Save, Trash2, Upload } from "lucide-react";
+import { History, Plus, Save, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { getPart, getProcess } from "@/lib/data";
 import { calcCost, formatInr, timeUnitLabel, variancePct } from "@/lib/costing";
@@ -18,6 +18,12 @@ import { useV2Graph } from "@/components/v2/V2GraphProvider";
 import { DerivedMhrBadge } from "@/components/demo/DerivedMhrBadge";
 import { upsertPart } from "@/lib/commercial/entityStore";
 import { markStory } from "@/components/story/StoryChecklist";
+import {
+  DataTable,
+  TableCellInput,
+  type PlantColumnDef,
+} from "@/components/plant/DataTable";
+import { RemoveIconButton } from "@/components/v2/editors/EditorPrimitives";
 
 export default function ProcessEntryPage() {
   const params = useParams<{ partId: string; processId: string }>();
@@ -38,7 +44,21 @@ export default function ProcessEntryPage() {
   const [est, setEst] = useState(initial?.timeEstimated ?? 0);
   const [act, setAct] = useState(initial?.timeActual ?? 0);
   const [fields, setFields] = useState<CustomField[]>(initial?.customFields ?? []);
-  const { resolveMhr, getMachine, resolveMachineId } = useV2Graph();
+  const [linkedMachineId, setLinkedMachineId] = useState("");
+  const { record, resolveMhr, getMachine, resolveMachineId } = useV2Graph();
+
+  useEffect(() => {
+    if (!found) return;
+    const current =
+      found.process.versions.find((v) => v.versionNumber === version) ??
+      found.process.versions[0];
+    const resolved =
+      resolveMachineId(current?.machineId) ??
+      current?.machineId ??
+      record.machines[0]?.id ??
+      "";
+    setLinkedMachineId((prev) => prev || resolved);
+  }, [found, version, resolveMachineId, record.machines]);
 
   if (!found || !initial) {
     return <div className="p-8 text-body-md">Process not found.</div>;
@@ -47,10 +67,10 @@ export default function ProcessEntryPage() {
   const { part, process } = found;
   const selected =
     process.versions.find((v) => v.versionNumber === version) ?? initial;
-  const machineId = selected.machineId;
-  const liveMachineId = resolveMachineId(machineId);
-  const machine = machineId ? getMachine(machineId) : undefined;
-  const mhr = resolveMhr(selected.mhr, machineId);
+
+  const liveMachineId = resolveMachineId(linkedMachineId || selected.machineId);
+  const machine = liveMachineId ? getMachine(liveMachineId) : undefined;
+  const mhr = resolveMhr(selected.mhr, linkedMachineId || selected.machineId);
 
   const estCost = calcCost(mhr, est, timeUnit);
   const actCost = calcCost(mhr, act, timeUnit);
@@ -66,6 +86,12 @@ export default function ProcessEntryPage() {
     setEst(v.timeEstimated);
     setAct(v.timeActual);
     setFields(v.customFields.map((f) => ({ ...f })));
+    setLinkedMachineId(
+      resolveMachineId(v.machineId) ??
+        v.machineId ??
+        record.machines[0]?.id ??
+        "",
+    );
   }
 
   function changeTimeUnit(next: TimeUnit) {
@@ -132,6 +158,32 @@ export default function ProcessEntryPage() {
             <Panel title="Metrics">
               <div className="grid grid-cols-1 gap-6 p-4 md:grid-cols-2">
                 <div className="space-y-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <label className="label-caps w-36 shrink-0 text-right text-on-surface-variant sm:pr-4">
+                      Factory machine
+                    </label>
+                    {record.machines.length === 0 ? (
+                      <p className="text-body-sm text-on-surface-variant">
+                        No machines yet.{" "}
+                        <Link href="/factory" className="text-primary hover:underline">
+                          Add one on Factory
+                        </Link>
+                        .
+                      </p>
+                    ) : (
+                      <select
+                        value={linkedMachineId}
+                        onChange={(e) => setLinkedMachineId(e.target.value)}
+                        className="flex-1 cursor-pointer rounded-sm border border-outline-variant bg-surface px-3 py-1.5 font-mono text-code-md focus:border-primary"
+                      >
+                        {record.machines.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name} · {m.type}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                   {machine && liveMachineId ? (
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                       <span className="label-caps w-36 shrink-0 text-right text-on-surface-variant sm:pr-4">
@@ -151,9 +203,8 @@ export default function ProcessEntryPage() {
                     />
                   )}
                   <p className="pl-0 text-[11px] text-on-surface-variant sm:pl-36">
-                    MHR comes from your plant setup when a machine is linked.
-                    Change labour, electricity, or utilization in Impact to
-                    update this cost.
+                    MHR is live Cash MHR from Factory Pulse. Change power,
+                    labour, or utilization in Master data — this cost updates.
                   </p>
                   <div className="flex items-center">
                     <label className="label-caps w-36 shrink-0 pr-4 text-right text-on-surface-variant">
@@ -225,50 +276,11 @@ export default function ProcessEntryPage() {
                 </button>
               }
             >
-              <div className="space-y-2 p-4">
-                {fields.length === 0 && (
-                  <p className="text-body-sm text-on-surface-variant">
-                    No custom fields. Click Add Field to create label / value pairs.
-                  </p>
-                )}
-                {fields.map((f) => (
-                  <div key={f.id} className="group flex items-center gap-2">
-                    <input
-                      value={f.label}
-                      onChange={(e) =>
-                        setFields((prev) =>
-                          prev.map((x) =>
-                            x.id === f.id ? { ...x, label: e.target.value } : x,
-                          ),
-                        )
-                      }
-                      placeholder="Label"
-                      className="w-1/3 rounded-sm border border-outline-variant bg-surface px-3 py-1.5 text-body-sm text-on-surface-variant focus:border-primary"
-                    />
-                    <input
-                      value={f.value}
-                      onChange={(e) =>
-                        setFields((prev) =>
-                          prev.map((x) =>
-                            x.id === f.id ? { ...x, value: e.target.value } : x,
-                          ),
-                        )
-                      }
-                      placeholder="Value"
-                      className="flex-1 rounded-sm border border-outline-variant bg-surface px-3 py-1.5 text-body-sm focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      aria-label="Delete field"
-                      onClick={() =>
-                        setFields((prev) => prev.filter((x) => x.id !== f.id))
-                      }
-                      className="cursor-pointer rounded p-1.5 text-outline opacity-0 transition-opacity hover:text-error group-hover:opacity-100 focus:opacity-100"
-                    >
-                      <Trash2 className="h-[18px] w-[18px]" />
-                    </button>
-                  </div>
-                ))}
+              <div className="p-3">
+                <ProcessCustomFieldsTable
+                  fields={fields}
+                  onChange={setFields}
+                />
               </div>
             </Panel>
           </div>
@@ -277,7 +289,7 @@ export default function ProcessEntryPage() {
             <div className="flex h-full flex-col p-4">
               <button
                 type="button"
-                className="mb-4 cursor-pointer rounded-lg border-2 border-dashed border-outline-variant p-4 text-center transition-colors hover:border-primary/50 hover:bg-surface-low"
+                className="mb-4 cursor-pointer rounded-sm border-2 border-dashed border-outline-variant p-4 text-center transition-colors hover:border-primary/50 hover:bg-surface-low"
                 onClick={() => {
                   const partLive = getPart(part.id);
                   if (!partLive) return;
@@ -373,9 +385,9 @@ export default function ProcessEntryPage() {
                           timeActual: act,
                           customFields: fields,
                           machineId:
-                            v.machineId ??
-                            liveMachineId ??
-                            recordMachinesFallback(),
+                            linkedMachineId ||
+                            liveMachineId ||
+                            v.machineId,
                         }
                       : v,
                   ),
@@ -395,8 +407,84 @@ export default function ProcessEntryPage() {
   );
 }
 
-function recordMachinesFallback(): string | undefined {
-  return undefined;
+function ProcessCustomFieldsTable({
+  fields,
+  onChange,
+}: {
+  fields: CustomField[];
+  onChange: (next: CustomField[]) => void;
+}) {
+  const columns = useMemo<PlantColumnDef<CustomField>[]>(
+    () => [
+      {
+        id: "label",
+        header: "Label",
+        size: 160,
+        minSize: 120,
+        cell: ({ row }) => (
+          <TableCellInput
+            aria-label="Field label"
+            placeholder="Label"
+            value={row.original.label}
+            onChange={(v) =>
+              onChange(
+                fields.map((x) =>
+                  x.id === row.original.id ? { ...x, label: v } : x,
+                ),
+              )
+            }
+          />
+        ),
+      },
+      {
+        id: "value",
+        header: "Value",
+        size: 220,
+        minSize: 160,
+        cell: ({ row }) => (
+          <TableCellInput
+            aria-label="Field value"
+            placeholder="Value"
+            value={row.original.value}
+            onChange={(v) =>
+              onChange(
+                fields.map((x) =>
+                  x.id === row.original.id ? { ...x, value: v } : x,
+                ),
+              )
+            }
+          />
+        ),
+      },
+      {
+        id: "actions",
+        header: "",
+        size: 48,
+        minSize: 44,
+        maxSize: 52,
+        cell: ({ row }) => (
+          <RemoveIconButton
+            label="Remove field"
+            onClick={() =>
+              onChange(fields.filter((x) => x.id !== row.original.id))
+            }
+          />
+        ),
+      },
+    ],
+    [fields, onChange],
+  );
+
+  return (
+    <DataTable
+      data={fields}
+      columns={columns}
+      getRowId={(row) => row.id}
+      dense
+      minWidth={460}
+      empty="No custom fields. Click Add Field to create label / value pairs."
+    />
+  );
 }
 
 function MetricInput({

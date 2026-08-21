@@ -50,6 +50,13 @@ export type ProcessStep = {
   versions: ProcessVersion[];
 };
 
+/** Part-owned weights + link to plant material grade (rates live on Impact snapshot). */
+export type PartMaterialCosting = {
+  materialGradeId: string | null;
+  inputWeightKg: number;
+  finishWeightKg: number;
+};
+
 export type Part = {
   id: string;
   code: string;
@@ -63,6 +70,8 @@ export type Part = {
   status: PartStatus;
   processes: ProcessStep[];
   partFiles: Attachment[];
+  /** Optional BOM weights; rates resolve from plant materialGrades. */
+  materialCosting?: PartMaterialCosting;
 };
 
 export type CustomerStatus = "Active" | "Inactive";

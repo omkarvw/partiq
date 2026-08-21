@@ -143,7 +143,7 @@ export type ScenarioDef = {
       Record<"labourAnnualAllocated" | "toolingAnnual" | "maintenanceAnnual", number>
     >
   >;
-  /** User-saved from Impact lab */
+  /** User-saved from Master data */
   custom?: boolean;
 };
 
@@ -192,8 +192,14 @@ export type ImpactStep = {
 
 export type PartEconomics = {
   partId: string;
+  /** Sum of process costs (est times × Cash MHR). */
   estCost: number;
+  /** Sum of process costs (act times × Cash MHR). */
   actCost: number;
+  /** Net material from part weights × grade rates. */
+  materialCost: number;
+  /** materialCost + estCost — used as quote costBasis. */
+  totalCost: number;
   estTimeSec: number;
   actTimeSec: number;
 };
@@ -202,7 +208,10 @@ export type QuoteEconomics = {
   quotationId: string;
   partId: string;
   unitPrice: number;
+  /** Live total part cost (process + material). */
   costBasis: number;
+  processCost: number;
+  materialCost: number;
   grossMarginPct: number | null;
   markupPct: number | null;
   underwater: boolean;

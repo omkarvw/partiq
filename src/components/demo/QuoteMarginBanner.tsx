@@ -54,8 +54,11 @@ export function QuoteMarginBanner({
                 />
               </div>
               <p className="text-body-sm text-on-surface-variant">
-                Process cost {formatInr(economics.costBasis)} · Unit price{" "}
-                {formatInr(economics.unitPrice)} · Gross margin{" "}
+                Part cost {formatInr(economics.costBasis)}
+                {economics.materialCost > 0
+                  ? ` (process ${formatInr(economics.processCost)} + material ${formatInr(economics.materialCost)})`
+                  : ""}{" "}
+                · Unit price {formatInr(economics.unitPrice)} · Gross margin{" "}
                 <span className="font-mono tabular-nums text-on-surface">
                   {economics.grossMarginPct == null
                     ? "—"

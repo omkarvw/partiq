@@ -281,7 +281,7 @@ export function DemoGraphProvider({ children }: { children: ReactNode }) {
         name: name.trim() || "Custom scenario",
         description:
           description?.trim() ||
-          "Saved from current Impact lab inputs.",
+          "Saved from current Master data inputs.",
         patches: snapshotToPatch(
           factory,
           machines,

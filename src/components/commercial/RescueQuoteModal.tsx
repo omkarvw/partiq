@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/Primitives";
+import { FormField, FormSelect } from "@/components/ui/FormField";
 import { formatInr } from "@/lib/costing";
 import {
   getEnquiriesForPart,
@@ -114,7 +115,7 @@ export function createRescueQuotesForPart(opts: {
         .toISOString()
         .slice(0, 10),
       terms: prior.terms || "Net 30 · Ex-works",
-      notes: `Rescue quote priced to honour ${opts.targetGrossMarginPct.toFixed(1)}% gross margin. Live process cost ${formatInr(opts.costBasis)}.`,
+      notes: `Rescue quote priced to honour ${opts.targetGrossMarginPct.toFixed(1)}% gross margin. Live part cost ${formatInr(opts.costBasis)}.`,
       status: "Draft",
       costBasis: opts.costBasis,
       createdAt: new Date().toISOString().slice(0, 10),
@@ -170,6 +171,7 @@ export function RescueQuoteModal({
   );
   const [unitPrice, setUnitPrice] = useState(String(suggested));
   const [busy, setBusy] = useState(false);
+  const [attempted, setAttempted] = useState(false);
 
   if (!open || !part) return null;
 
@@ -194,11 +196,14 @@ export function RescueQuoteModal({
       onClose={onClose}
     >
       <form
+        noValidate
         className="space-y-4 p-4"
         onSubmit={(e) => {
           e.preventDefault();
+          setAttempted(true);
           if (!meetsGoal || busy) return;
           if (mode === "single" && !enquiryId) return;
+          if (!(Number(unitPrice) > 0)) return;
           setBusy(true);
 
           let created: Quotation[] = [];
@@ -225,7 +230,7 @@ export function RescueQuoteModal({
                 .toISOString()
                 .slice(0, 10),
               terms: prior?.terms ?? "Net 30 · Ex-works",
-              notes: `Rescue quote priced to honour ${targetGrossMarginPct.toFixed(1)}% gross margin. Live process cost ${formatInr(costBasis)}. Prior unit ${formatInr(currentUnitPrice)}.`,
+              notes: `Rescue quote priced to honour ${targetGrossMarginPct.toFixed(1)}% gross margin. Live part cost ${formatInr(costBasis)}. Prior unit ${formatInr(currentUnitPrice)}.`,
               status: "Draft",
               costBasis,
               createdAt: new Date().toISOString().slice(0, 10),
@@ -253,7 +258,7 @@ export function RescueQuoteModal({
         }}
       >
         <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-body-sm text-on-surface-variant">
-          Live process cost{" "}
+          Live part cost{" "}
           <span className="font-mono tabular-nums text-on-surface">
             {formatInr(costBasis)}
           </span>
@@ -276,46 +281,41 @@ export function RescueQuoteModal({
         </div>
 
         {mode === "single" ? (
-          <label className="block">
-            <span className="label-caps mb-1 block text-on-surface-variant">
-              Customer enquiry *
-            </span>
-            <select
-              required
-              value={enquiryId}
-              onChange={(e) => setEnquiryId(e.target.value)}
-              className="w-full cursor-pointer rounded-sm border border-outline-variant bg-surface px-3 py-2 font-mono text-code-md focus:border-primary"
-            >
-              {enquiries.length === 0 ? (
-                <option value="" disabled>
-                  No enquiry — open Commercial first
+          <FormSelect
+            label="Customer enquiry"
+            value={enquiryId}
+            onChange={setEnquiryId}
+            required
+            attempted={attempted}
+          >
+            {enquiries.length === 0 ? (
+              <option value="" disabled>
+                No enquiry — open Commercial first
+              </option>
+            ) : (
+              enquiries.map((enq) => (
+                <option key={enq.id} value={enq.id}>
+                  {enq.reference} · {enq.customer} · {enq.status}
                 </option>
-              ) : (
-                enquiries.map((enq) => (
-                  <option key={enq.id} value={enq.id}>
-                    {enq.reference} · {enq.customer} · {enq.status}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
+              ))
+            )}
+          </FormSelect>
         ) : null}
 
         <div className="grid grid-cols-2 gap-3">
-          <label className="block">
-            <span className="label-caps mb-1 block text-on-surface-variant">
-              Unit price (₹) *
-            </span>
-            <input
-              required
-              type="number"
-              min={0}
-              step={0.01}
-              value={unitPrice}
-              onChange={(e) => setUnitPrice(e.target.value)}
-              className="w-full rounded-sm border border-outline-variant bg-surface px-3 py-2 font-mono text-code-md tabular-nums focus:border-primary"
-            />
-          </label>
+          <FormField
+            label="Unit price (₹)"
+            value={unitPrice}
+            onChange={setUnitPrice}
+            type="number"
+            required
+            attempted={attempted}
+            error={
+              attempted && !(Number(unitPrice) > 0)
+                ? "Enter a unit price greater than 0"
+                : null
+            }
+          />
           <div className="rounded-sm border border-outline-variant bg-surface-low px-3 py-2">
             <p className="label-caps text-on-surface-variant">
               Resulting margin

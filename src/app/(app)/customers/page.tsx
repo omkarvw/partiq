@@ -7,6 +7,8 @@ import { getAllCustomers } from "@/lib/data";
 import { Button, Panel, StatusChip } from "@/components/ui/Primitives";
 import { CreateCustomerModal } from "@/components/ui/Modals";
 import { CustomerStatusToggle } from "@/components/commercial/EntityStatusToggle";
+import { DataTable, type PlantColumnDef } from "@/components/plant/DataTable";
+import type { Customer } from "@/lib/types";
 
 export default function CustomersPage() {
   const [q, setQ] = useState("");
@@ -29,6 +31,81 @@ export default function CustomersPage() {
         c.contactName.toLowerCase().includes(needle),
     );
   }, [q, allCustomers]);
+
+  const columns = useMemo<PlantColumnDef<Customer>[]>(
+    () => [
+      {
+        id: "code",
+        header: "Code",
+        size: 110,
+        minSize: 90,
+        cell: ({ row }) => (
+          <Link
+            href={`/customers/${row.original.id}`}
+            className="cursor-pointer font-mono text-code-md font-medium text-primary hover:underline"
+          >
+            {row.original.code}
+          </Link>
+        ),
+      },
+      {
+        id: "name",
+        header: "Name",
+        size: 200,
+        minSize: 140,
+        cell: ({ row }) => (
+          <span className="block truncate text-body-sm text-on-surface">
+            {row.original.name}
+          </span>
+        ),
+      },
+      {
+        id: "contact",
+        header: "Contact",
+        size: 160,
+        minSize: 120,
+        cell: ({ row }) => (
+          <span className="block truncate text-body-sm text-on-surface-variant">
+            {row.original.contactName}
+          </span>
+        ),
+      },
+      {
+        id: "city",
+        header: "City",
+        size: 120,
+        minSize: 90,
+        cell: ({ row }) => (
+          <span className="font-mono text-code-sm text-on-surface-variant">
+            {row.original.city}
+          </span>
+        ),
+      },
+      {
+        id: "status",
+        header: "Status",
+        size: 100,
+        minSize: 80,
+        cell: ({ row }) => <StatusChip status={row.original.status} />,
+      },
+      {
+        id: "actions",
+        header: "",
+        size: 100,
+        minSize: 90,
+        cell: ({ row }) => (
+          <span
+            onClick={() => setTick((t) => t + 1)}
+            onKeyDown={() => undefined}
+            role="presentation"
+          >
+            <CustomerStatusToggle customerId={row.original.id} />
+          </span>
+        ),
+      },
+    ],
+    [],
+  );
 
   return (
     <div className="p-8">
@@ -73,59 +150,16 @@ export default function CustomersPage() {
             </Button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left">
-              <thead className="bg-surface-low">
-                <tr className="label-caps text-on-surface-variant">
-                  <th className="px-4 py-2.5 font-bold">Code</th>
-                  <th className="px-4 py-2.5 font-bold">Name</th>
-                  <th className="px-4 py-2.5 font-bold">Contact</th>
-                  <th className="px-4 py-2.5 font-bold">City</th>
-                  <th className="px-4 py-2.5 font-bold">Status</th>
-                  <th className="px-4 py-2.5 font-bold"> </th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c) => (
-                  <tr
-                    key={c.id}
-                    className={`border-t border-outline-variant/50 transition-colors hover:bg-surface-low/70 ${
-                      c.status === "Inactive" ? "opacity-55" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3">
-                      <Link
-                        href={`/customers/${c.id}`}
-                        className="cursor-pointer font-mono text-code-md font-medium text-primary hover:underline"
-                      >
-                        {c.code}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-body-md text-on-surface">
-                      {c.name}
-                    </td>
-                    <td className="px-4 py-3 text-body-sm text-on-surface-variant">
-                      {c.contactName}
-                    </td>
-                    <td className="px-4 py-3 font-mono text-code-sm text-on-surface-variant">
-                      {c.city}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusChip status={c.status} />
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <span
-                        onClick={() => setTick((t) => t + 1)}
-                        onKeyDown={() => undefined}
-                        role="presentation"
-                      >
-                        <CustomerStatusToggle customerId={c.id} />
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-3">
+            <DataTable
+              data={filtered}
+              columns={columns}
+              getRowId={(row) => row.id}
+              minWidth={780}
+              getRowClassName={(row) =>
+                row.status === "Inactive" ? "opacity-55" : undefined
+              }
+            />
           </div>
         )}
       </Panel>

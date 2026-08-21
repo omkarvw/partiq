@@ -1,10 +1,17 @@
 "use client";
 
-import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Factory, Sparkles } from "lucide-react";
 import { PRODUCT_NAME } from "@/lib/brand";
+import { writeSessionActor } from "@/lib/v2/sessionActor";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [name, setName] = useState("Plant operator");
+  const [email, setEmail] = useState("ops@yourplant.com");
+  const [attempted, setAttempted] = useState(false);
+
   return (
     <div className="flex min-h-screen">
       <div className="relative hidden w-[46%] overflow-hidden bg-on-secondary-fixed p-10 text-on-primary lg:flex lg:flex-col lg:justify-between">
@@ -33,57 +40,86 @@ export default function LoginPage() {
             One plant model for cost, capacity, and part quotes.
           </h1>
           <p className="mt-4 max-w-md text-body-md text-secondary-fixed-dim">
-            Set up your factory once. Decision, Impact, and Parts all use the
-            same Cash MHR.
+            Set up your factory once. Factory, Impact, Parts, and quotes all
+            use the same Cash MHR.
           </p>
         </div>
         <p className="relative font-mono text-code-sm text-secondary-fixed-dim">
-          Local preview · any credentials work
+          Local preview · name is stored for Impact audit
         </p>
       </div>
 
       <div className="flex flex-1 items-center justify-center bg-background p-8">
-        <div className="w-full max-w-md rounded-2xl border border-outline-variant bg-surface-lowest p-8 shadow-industrial">
+        <div className="w-full max-w-md rounded-lg border border-outline-variant bg-surface-lowest p-8 shadow-industrial">
           <div className="mb-6 flex items-center gap-2 text-primary">
             <Sparkles className="h-5 w-5" />
             <span className="label-caps">Sign in</span>
           </div>
           <h2 className="text-headline-md text-on-surface">Welcome</h2>
           <p className="mt-1 text-body-sm text-on-surface-variant">
-            Continue into your plant workspace.
+            Your name is attached to Impact commits (make live / save what-if).
           </p>
 
-          <form className="mt-6 space-y-4">
+          <form
+            noValidate
+            className="mt-6 space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setAttempted(true);
+              if (!name.trim()) return;
+              writeSessionActor({ name, email });
+              router.push("/welcome");
+            }}
+          >
             <label className="block">
-              <span className="label-caps mb-1 block text-on-surface-variant">
+              <span className="label-caps mb-1.5 block text-on-surface-variant">
+                Your name *
+              </span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                aria-required
+                aria-invalid={attempted && !name.trim() ? true : undefined}
+                className={`min-h-11 w-full rounded-sm border bg-surface-lowest px-3 text-body-sm text-on-surface focus:border-primary ${
+                  attempted && !name.trim()
+                    ? "border-error ring-1 ring-error/30"
+                    : "border-outline-variant"
+                }`}
+              />
+              {attempted && !name.trim() ? (
+                <span className="mt-1 block text-[11px] text-error">
+                  Required
+                </span>
+              ) : null}
+            </label>
+            <label className="block">
+              <span className="label-caps mb-1.5 block text-on-surface-variant">
                 Email
               </span>
               <input
                 type="email"
-                defaultValue="ops@yourplant.com"
-                className="min-h-11 w-full rounded-sm border border-outline-variant bg-surface px-3 text-body-md focus:border-primary"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="min-h-11 w-full rounded-sm border border-outline-variant bg-surface-lowest px-3 text-body-sm text-on-surface focus:border-primary"
               />
             </label>
             <label className="block">
-              <span className="label-caps mb-1 block text-on-surface-variant">
+              <span className="label-caps mb-1.5 block text-on-surface-variant">
                 Password
               </span>
               <input
                 type="password"
                 defaultValue="••••••••"
-                className="min-h-11 w-full rounded-sm border border-outline-variant bg-surface px-3 text-body-md focus:border-primary"
+                className="min-h-11 w-full rounded-sm border border-outline-variant bg-surface-lowest px-3 text-body-sm text-on-surface focus:border-primary"
               />
             </label>
-          </form>
-
-          <div className="mt-6">
-            <Link
-              href="/welcome"
+            <button
+              type="submit"
               className="flex min-h-11 w-full cursor-pointer items-center justify-center rounded-sm bg-primary px-4 text-body-sm font-medium text-on-primary transition-colors hover:bg-primary/90"
             >
               Continue to workspace
-            </Link>
-          </div>
+            </button>
+          </form>
         </div>
       </div>
     </div>

@@ -3,11 +3,15 @@ import {
   getAllParts,
   getAllQuotations,
   getCurrentVersion,
+  getEnquiry,
   getPart,
   getQuotation,
 } from "@/lib/data";
 import { isMarginExcepted } from "@/lib/commercial/entityStore";
+import { resolvePartMaterialCost, findMaterialGrade } from "@/lib/commercial/materialCost";
 import { resolvePlantMachineId } from "@/lib/plant/machineBridge";
+import type { V2MaterialGrade } from "@/lib/v2/clientDb";
+import type { Quotation } from "@/lib/types";
 import type {
   ImpactStep,
   MhrBreakup,
@@ -38,6 +42,7 @@ export function computePartEconomics(
   partId: string,
   breakups: Record<string, MhrBreakup>,
   plantMachines?: MachineRef[],
+  materialGrades: V2MaterialGrade[] = [],
 ): PartEconomics | null {
   const part = getPart(partId);
   if (!part) return null;
@@ -53,18 +58,93 @@ export function computePartEconomics(
     estTimeSec += toSeconds(v.timeEstimated, v.timeUnit);
     actTimeSec += toSeconds(v.timeActual, v.timeUnit);
   }
-  return { partId, estCost, actCost, estTimeSec, actTimeSec };
+  const materialCost = resolvePartMaterialCost(part, materialGrades);
+  return {
+    partId,
+    estCost,
+    actCost,
+    materialCost,
+    totalCost: materialCost + estCost,
+    estTimeSec,
+    actTimeSec,
+  };
 }
+
+export type PartCostDeltaRow = {
+  partId: string;
+  code: string;
+  name: string;
+  gradeName: string;
+  liveMaterial: number;
+  draftMaterial: number;
+  liveTotal: number;
+  draftTotal: number;
+  delta: number;
+};
+
+/** Live vs draft part totals when material grade rates differ. */
+export function listPartCostDeltas(
+  breakups: Record<string, MhrBreakup>,
+  plantMachines: MachineRef[] | undefined,
+  liveGrades: V2MaterialGrade[],
+  draftGrades: V2MaterialGrade[],
+): PartCostDeltaRow[] {
+  const rows: PartCostDeltaRow[] = [];
+  for (const part of getAllParts()) {
+    if (part.status === "Inactive") continue;
+    const gradeId = part.materialCosting?.materialGradeId;
+    if (!gradeId) continue;
+    const liveEco = computePartEconomics(
+      part.id,
+      breakups,
+      plantMachines,
+      liveGrades,
+    );
+    const draftEco = computePartEconomics(
+      part.id,
+      breakups,
+      plantMachines,
+      draftGrades,
+    );
+    if (!liveEco || !draftEco) continue;
+    const delta = draftEco.totalCost - liveEco.totalCost;
+    if (Math.abs(delta) < 0.005) continue;
+    const grade =
+      findMaterialGrade(draftGrades, gradeId) ??
+      findMaterialGrade(liveGrades, gradeId);
+    rows.push({
+      partId: part.id,
+      code: part.code,
+      name: part.name,
+      gradeName: grade?.name ?? "Grade",
+      liveMaterial: liveEco.materialCost,
+      draftMaterial: draftEco.materialCost,
+      liveTotal: liveEco.totalCost,
+      draftTotal: draftEco.totalCost,
+      delta,
+    });
+  }
+  return rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+}
+
 
 export function computeQuoteEconomics(
   quotationId: string,
   breakups: Record<string, MhrBreakup>,
   plantMachines?: MachineRef[],
+  materialGrades: V2MaterialGrade[] = [],
 ): QuoteEconomics | null {
   const q = getQuotation(quotationId);
   if (!q) return null;
-  const partEco = computePartEconomics(q.partId, breakups, plantMachines);
-  const costBasis = partEco?.estCost ?? q.costBasis ?? 0;
+  const partEco = computePartEconomics(
+    q.partId,
+    breakups,
+    plantMachines,
+    materialGrades,
+  );
+  const processCost = partEco?.estCost ?? 0;
+  const materialCost = partEco?.materialCost ?? 0;
+  const costBasis = partEco?.totalCost ?? q.costBasis ?? 0;
   const markupPct =
     costBasis > 0 ? ((q.unitPrice - costBasis) / costBasis) * 100 : null;
   const grossMarginPct =
@@ -74,6 +154,8 @@ export function computeQuoteEconomics(
     partId: q.partId,
     unitPrice: q.unitPrice,
     costBasis,
+    processCost,
+    materialCost,
     grossMarginPct,
     markupPct,
     underwater: costBasis > q.unitPrice,
@@ -84,9 +166,12 @@ export function listAtRiskQuotes(
   breakups: Record<string, MhrBreakup>,
   marginFloorPct = 10,
   plantMachines?: MachineRef[],
+  materialGrades: V2MaterialGrade[] = [],
 ): QuoteEconomics[] {
   return getAllQuotations()
-    .map((q) => computeQuoteEconomics(q.id, breakups, plantMachines))
+    .map((q) =>
+      computeQuoteEconomics(q.id, breakups, plantMachines, materialGrades),
+    )
     .filter((e): e is QuoteEconomics => {
       if (!e) return false;
       if (e.underwater) return true;
@@ -99,6 +184,7 @@ export function getPartQuoteRisk(
   partId: string,
   breakups: Record<string, MhrBreakup>,
   plantMachines?: MachineRef[],
+  materialGrades: V2MaterialGrade[] = [],
 ): QuoteEconomics | null {
   const ecos = getAllQuotations()
     .filter(
@@ -107,7 +193,9 @@ export function getPartQuoteRisk(
         q.status !== "Inactive" &&
         q.status !== "Superseded",
     )
-    .map((q) => computeQuoteEconomics(q.id, breakups, plantMachines))
+    .map((q) =>
+      computeQuoteEconomics(q.id, breakups, plantMachines, materialGrades),
+    )
     .filter((e): e is QuoteEconomics => e != null);
   if (ecos.length === 0) return null;
   const underwater = ecos.filter((e) => e.underwater);
@@ -125,46 +213,88 @@ export type UrgentPartRow = {
   partId: string;
   code: string;
   name: string;
+  /** Buyer on this quote’s enquiry (not only the part’s primary customer). */
   customer: string;
   status: string;
+  quoteNumber: string;
+  quotationId: string;
   economics: QuoteEconomics;
   gapToGoalPts: number;
   reason: "underwater" | "below_goal";
 };
 
 /**
- * Parts whose live quote margin misses the plant target (or are underwater).
+ * Latest active quote per (part, customer) that misses the plant margin goal
+ * or is underwater. Older quotes for the same pair are ignored so Urgent
+ * does not grow forever with history.
  * Goal comes from onboarding: plant.targetGrossMarginPct.
  */
 export function listUrgentParts(
   breakups: Record<string, MhrBreakup>,
   targetGrossMarginPct: number,
   plantMachines?: MachineRef[],
+  materialGrades: V2MaterialGrade[] = [],
 ): UrgentPartRow[] {
   const goal = Number.isFinite(targetGrossMarginPct)
     ? targetGrossMarginPct
     : 20;
+  const partsById = new Map(getAllParts().map((p) => [p.id, p]));
+
+  /** Latest Draft/Sent quote per part+customer (Inactive/Superseded skipped). */
+  const latestByPair = new Map<
+    string,
+    { quote: Quotation; customerName: string }
+  >();
+
+  for (const q of getAllQuotations()) {
+    if (q.status === "Inactive" || q.status === "Superseded") continue;
+    const part = partsById.get(q.partId);
+    if (!part || part.status === "Inactive") continue;
+
+    const enquiry = getEnquiry(q.enquiryId);
+    const customerId = enquiry?.customerId ?? part.customerId;
+    const customerName = enquiry?.customer ?? part.customer;
+    const key = `${q.partId}::${customerId}`;
+    const prev = latestByPair.get(key);
+    if (
+      !prev ||
+      q.createdAt > prev.quote.createdAt ||
+      (q.createdAt === prev.quote.createdAt && q.id > prev.quote.id)
+    ) {
+      latestByPair.set(key, { quote: q, customerName });
+    }
+  }
+
   const rows: UrgentPartRow[] = [];
-  for (const part of getAllParts()) {
-    if (part.status === "Inactive") continue;
-    const economics = getPartQuoteRisk(part.id, breakups, plantMachines);
+  for (const { quote: q, customerName } of latestByPair.values()) {
+    if (isMarginExcepted(q.id)) continue;
+    const part = partsById.get(q.partId);
+    if (!part) continue;
+
+    const economics = computeQuoteEconomics(
+      q.id,
+      breakups,
+      plantMachines,
+      materialGrades,
+    );
     if (!economics || economics.grossMarginPct == null) continue;
-    if (isMarginExcepted(economics.quotationId)) continue;
-    const q = getQuotation(economics.quotationId);
-    if (q?.status === "Inactive" || q?.status === "Superseded") continue;
     const belowGoal = economics.grossMarginPct < goal;
     if (!economics.underwater && !belowGoal) continue;
+
     rows.push({
       partId: part.id,
       code: part.code,
       name: part.name,
-      customer: part.customer,
+      customer: customerName,
       status: part.status,
+      quoteNumber: q.quoteNumber,
+      quotationId: q.id,
       economics,
       gapToGoalPts: goal - economics.grossMarginPct,
       reason: economics.underwater ? "underwater" : "below_goal",
     });
   }
+
   return rows.sort((a, b) => {
     if (a.reason !== b.reason) {
       return a.reason === "underwater" ? -1 : 1;

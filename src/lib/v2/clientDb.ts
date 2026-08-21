@@ -207,12 +207,20 @@ export type V2PlantDraft = {
   spaceEfficiencyPct: number;
   electricityRatePerKwh: number;
   /**
-   * Minimum gross margin % on quotes vs live process cost.
+   * Minimum gross margin % on quotes vs live part cost (process + material).
    * Set during onboarding; drives Urgent triage when parts fall short.
    */
   targetGrossMarginPct: number;
   /** Copy hint only — how the plant names its sections. */
   sectionOrganizingHint: SectionOrganizingHint;
+};
+
+/** Raw / scrap ₹/kg master — Impact-drafted; parts link by id. */
+export type V2MaterialGrade = {
+  id: string;
+  name: string;
+  rawRatePerKg: number;
+  scrapRatePerKg: number;
 };
 
 export type V2BaselineSnapshot = {
@@ -224,6 +232,7 @@ export type V2BaselineSnapshot = {
   labourByType: Record<string, V2LabourRole[]>;
   statutory: V2Statutory;
   overheadLines: V2OhLine[];
+  materialGrades: V2MaterialGrade[];
 };
 
 export type V2BaselineVersion = {
@@ -248,18 +257,20 @@ export type ImpactSectionId =
   | "machines"
   | "labour"
   | "overhead"
-  | "tooling";
+  | "tooling"
+  | "materials";
 
 export const IMPACT_SECTIONS = [
-  { id: "plant" as const, label: "Plant", href: "/impact/plant" },
-  { id: "utilities" as const, label: "Utilities", href: "/impact/utilities" },
-  { id: "machines" as const, label: "Machines", href: "/impact/machines" },
-  { id: "overhead" as const, label: "Overhead", href: "/impact/overhead" },
-  { id: "tooling" as const, label: "Tooling", href: "/impact/tooling" },
+  { id: "plant" as const, label: "Plant", href: "/master-data/plant" },
+  { id: "utilities" as const, label: "Utilities", href: "/master-data/utilities" },
+  { id: "machines" as const, label: "Machines", href: "/master-data/machines" },
+  { id: "overhead" as const, label: "Overhead", href: "/master-data/overhead" },
+  { id: "tooling" as const, label: "Tooling", href: "/master-data/tooling" },
+  { id: "materials" as const, label: "Materials", href: "/master-data/materials" },
 ];
 
 /** Still tracked for dirty/preview; edits live under Machines → labour. */
-export const IMPACT_LABOUR_HREF = "/impact/machines?tab=labour";
+export const IMPACT_LABOUR_HREF = "/master-data/machines?tab=labour";
 
 export type V2ClientRecord = {
   version: number;
@@ -277,6 +288,8 @@ export type V2ClientRecord = {
   labourByType: Record<string, V2LabourRole[]>;
   statutory: V2Statutory;
   overheadLines: V2OhLine[];
+  /** Raw material grade rates — drafted with plant costs in Master data. */
+  materialGrades: V2MaterialGrade[];
   /** Versioned operating baselines (V2 primary). */
   baselines: V2BaselineVersion[];
   /** Named what-ifs that do not become live until adopted. */
@@ -675,6 +688,40 @@ export function createEmptyMachine(
   });
 }
 
+export function defaultMaterialGrades(): V2MaterialGrade[] {
+  return [
+    {
+      id: "grade-en1",
+      name: "EN1 Leaded Steel",
+      rawRatePerKg: 85,
+      scrapRatePerKg: 28,
+    },
+    {
+      id: "grade-en8",
+      name: "EN8",
+      rawRatePerKg: 72,
+      scrapRatePerKg: 24,
+    },
+    {
+      id: "grade-al6061",
+      name: "AL6061-T6",
+      rawRatePerKg: 310,
+      scrapRatePerKg: 120,
+    },
+  ];
+}
+
+export function createEmptyMaterialGrade(
+  name = "New grade",
+): V2MaterialGrade {
+  return {
+    id: uid("grade"),
+    name,
+    rawRatePerKg: 0,
+    scrapRatePerKg: 0,
+  };
+}
+
 export function createEmptyClientRecord(): V2ClientRecord {
   const now = new Date().toISOString();
   const section = createDefaultSection();
@@ -693,6 +740,7 @@ export function createEmptyClientRecord(): V2ClientRecord {
     labourByType: {},
     statutory: defaultStatutory(),
     overheadLines: defaultOverheadLines(),
+    materialGrades: defaultMaterialGrades(),
     baselines: [],
     scenarios: [],
     activeBaselineId: null,
@@ -709,6 +757,7 @@ export function snapshotFromRecord(record: V2ClientRecord): V2BaselineSnapshot {
     labourByType: structuredClone(record.labourByType),
     statutory: { ...record.statutory },
     overheadLines: structuredClone(record.overheadLines),
+    materialGrades: structuredClone(record.materialGrades ?? []),
   };
 }
 
@@ -726,6 +775,9 @@ export function applySnapshotToRecord(
     labourByType: structuredClone(snapshot.labourByType),
     statutory: { ...snapshot.statutory },
     overheadLines: structuredClone(snapshot.overheadLines),
+    materialGrades: structuredClone(
+      snapshot.materialGrades ?? record.materialGrades ?? [],
+    ),
   };
 }
 
@@ -1248,6 +1300,11 @@ export function migrateClientRecord(raw: Record<string, unknown>): V2ClientRecor
       overheadLines: structuredClone(
         s.overheadLines ?? empty.overheadLines,
       ),
+      materialGrades: structuredClone(
+        Array.isArray(s.materialGrades) && s.materialGrades.length > 0
+          ? s.materialGrades
+          : empty.materialGrades,
+      ),
     };
   };
 
@@ -1298,6 +1355,11 @@ export function migrateClientRecord(raw: Record<string, unknown>): V2ClientRecor
     overheadLines: Array.isArray(raw.overheadLines)
       ? (raw.overheadLines as V2OhLine[])
       : empty.overheadLines,
+    materialGrades:
+      Array.isArray(raw.materialGrades) &&
+      (raw.materialGrades as V2MaterialGrade[]).length > 0
+        ? (raw.materialGrades as V2MaterialGrade[])
+        : empty.materialGrades,
     baselines,
     scenarios,
     activeBaselineId:

@@ -283,7 +283,7 @@ export function AddMachineModal({
               {roles.length === 0 ? (
                 <p className="text-body-sm text-on-surface-variant">
                   No roles yet — add operator / helper or skip and fill later
-                  in Impact.
+                  in Master data.
                 </p>
               ) : null}
               {roles.map((role) => (
@@ -342,7 +342,7 @@ export function AddMachineModal({
             <div className="space-y-4">
               <p className="text-body-sm text-on-surface-variant">
                 These sit on this machine only. Air, coolant, and tooling can
-                be finished in Impact after it is on the list.
+                be finished in Master data after it is on the list.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <Num

@@ -83,13 +83,14 @@ export default function V2BaselinesPage() {
               · {new Date(activeBaseline.createdAt).toLocaleString("en-IN")}
             </span>
           </span>
-          <Link href="/impact" className="ml-auto font-medium text-primary">
-            Open Impact lab
+          <Link href="/master-data" className="ml-auto font-medium text-primary">
+            Open Master data
           </Link>
         </div>
       ) : null}
 
       <form
+        noValidate
         onSubmit={handleCreate}
         className="mt-6 max-w-xl space-y-3 rounded-2xl border border-outline-variant bg-surface-lowest p-5"
       >
@@ -99,7 +100,7 @@ export default function V2BaselinesPage() {
         </div>
         <p className="text-body-sm text-on-surface-variant">
           Saves the <strong>current live plant state</strong>. Prefer Adopt as
-          baseline from Impact after a what-if.
+          baseline from Master data after a what-if.
         </p>
         <label className="block">
           <span className="label-caps mb-1 block text-on-surface-variant">
@@ -131,7 +132,7 @@ export default function V2BaselinesPage() {
         </p>
         {scenarios.length === 0 ? (
           <p className="text-body-sm text-on-surface-variant">
-            No scenarios yet. Change assumptions in Impact lab and choose Save
+            No scenarios yet. Change assumptions in Master data and choose Save
             as scenario.
           </p>
         ) : (
@@ -185,10 +186,10 @@ export default function V2BaselinesPage() {
                       {open ? "Hide impact" : "Show impact"}
                     </V2SecondaryButton>
                     <Link
-                      href={`/impact?scenario=${scenario.id}`}
+                      href={`/master-data?scenario=${scenario.id}`}
                       className="inline-flex min-h-11 items-center rounded-lg border border-outline-variant px-4 text-body-sm font-medium text-on-surface hover:bg-surface-low"
                     >
-                      Open in Impact
+                      Open in Master data
                     </Link>
                     <V2SecondaryButton
                       type="button"

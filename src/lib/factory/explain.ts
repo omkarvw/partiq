@@ -109,7 +109,7 @@ export function buildMhrExplainTree(
                 label: "Electricity tariff",
                 value: factory.electricityRatePerKwh,
                 unit: "₹/kWh",
-                formula: "Semi-static plant input (editable in Impact)",
+                formula: "Semi-static plant input (editable in Master data)",
                 dependsOn: [],
               },
               {
@@ -186,7 +186,7 @@ export function buildMhrExplainTree(
             label: "Machine utilization",
             value: machine.utilizationPct ?? factory.utilizationPct,
             unit: "%",
-            formula: "Per-machine lever (editable in setup / Impact)",
+            formula: "Per-machine lever (editable in setup / Master data)",
             dependsOn: [],
           },
           {

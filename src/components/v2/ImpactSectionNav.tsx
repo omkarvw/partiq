@@ -2,19 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard } from "lucide-react";
+import { ClipboardList, LayoutDashboard } from "lucide-react";
 import { useImpactDraft } from "@/components/v2/ImpactDraftProvider";
 import { IMPACT_SECTIONS } from "@/lib/v2/clientDb";
 
 export function ImpactSectionNav() {
   const pathname = usePathname();
   const { moneyDirty, moneyDirtyTotal } = useImpactDraft();
-  const overviewActive = pathname === "/impact";
+  const overviewActive =
+    pathname === "/master-data" || pathname === "/impact";
+  const auditActive =
+    pathname.startsWith("/master-data/audit") ||
+    pathname.startsWith("/impact/audit");
 
   return (
     <nav className="flex flex-wrap gap-1 border-b border-outline-variant pb-3">
       <Link
-        href="/impact"
+        href="/master-data"
         className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-body-sm font-medium ${
           overviewActive
             ? "bg-primary text-on-primary"
@@ -50,7 +54,7 @@ export function ImpactSectionNav() {
               <span
                 className="impact-dirty-light"
                 aria-label="Changed"
-                title="Changed vs baseline"
+                title="Changed vs live"
               />
             ) : null}
             {section.label}
@@ -60,6 +64,17 @@ export function ImpactSectionNav() {
           </Link>
         );
       })}
+      <Link
+        href="/master-data/audit"
+        className={`inline-flex min-h-10 items-center gap-2 rounded-lg px-3 text-body-sm font-medium ${
+          auditActive
+            ? "bg-primary text-on-primary"
+            : "bg-surface-lowest text-on-surface-variant hover:bg-surface-low"
+        }`}
+      >
+        <ClipboardList className="h-4 w-4" />
+        Audit
+      </Link>
     </nav>
   );
 }

@@ -47,6 +47,16 @@ export default function CommercialHubPage() {
     return new Map(summary.quotations.map((q) => [q.id, q]));
   }, [summary]);
 
+  const enquiryById = useMemo(() => {
+    if (!summary) return new Map<string, { customer: string; reference: string }>();
+    return new Map(
+      summary.enquiries.map((e) => [
+        e.id,
+        { customer: e.customer, reference: e.reference },
+      ]),
+    );
+  }, [summary]);
+
   if (!part || !summary) {
     return <div className="p-8 text-body-md">Part not found.</div>;
   }
@@ -56,10 +66,13 @@ export default function CommercialHubPage() {
     label: `${e.reference} · ${e.customer}`,
   }));
 
-  const quotationOptions = summary.quotations.map((q) => ({
-    id: q.id,
-    label: `${q.quoteNumber} · ${formatInr(q.unitPrice)}`,
-  }));
+  const quotationOptions = summary.quotations.map((q) => {
+    const enq = enquiryById.get(q.enquiryId);
+    return {
+      id: q.id,
+      label: `${q.quoteNumber} · ${enq?.customer ?? "—"} · ${formatInr(q.unitPrice)}`,
+    };
+  });
 
   const bump = () => setTick((t) => t + 1);
 
@@ -85,15 +98,17 @@ export default function CommercialHubPage() {
           <p className="mt-1 max-w-2xl text-body-md text-on-surface-variant">
             Enquiries, quotations, and customer responses for{" "}
             <span className="font-mono text-on-surface">{part.code}</span>
-            {" · "}
-            {part.customer}
+            . Primary customer{" "}
+            <span className="font-medium text-on-surface">{part.customer}</span>
+            — add more RFQs to quote the same part to other buyers at different
+            prices.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           {tab === "enquiries" && (
             <Button onClick={() => setEnquiryOpen(true)}>
               <Plus className="h-4 w-4" />
-              New Enquiry
+              New Enquiry (any customer)
             </Button>
           )}
           {tab === "quotations" && (
@@ -193,10 +208,11 @@ export default function CommercialHubPage() {
             </p>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left">
+              <table className="w-full min-w-[840px] text-left">
                 <thead>
                   <tr className="border-b border-outline-variant bg-surface-low/50 text-on-surface-variant">
                     <th className="label-caps px-4 py-3 font-medium">Quote #</th>
+                    <th className="label-caps px-4 py-3 font-medium">Customer</th>
                     <th className="label-caps px-4 py-3 font-medium">Unit price</th>
                     <th className="label-caps px-4 py-3 font-medium">Qty</th>
                     <th className="label-caps px-4 py-3 font-medium">Lead time</th>
@@ -205,7 +221,9 @@ export default function CommercialHubPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/50">
-                  {summary.quotations.map((q) => (
+                  {summary.quotations.map((q) => {
+                    const enq = enquiryById.get(q.enquiryId);
+                    return (
                     <tr key={q.id} className="hover:bg-surface-low/40">
                       <td className="px-4 py-3">
                         <Link
@@ -214,6 +232,9 @@ export default function CommercialHubPage() {
                         >
                           {q.quoteNumber}
                         </Link>
+                      </td>
+                      <td className="px-4 py-3 text-body-sm text-on-surface">
+                        {enq?.customer ?? "—"}
                       </td>
                       <td className="px-4 py-3 font-mono text-code-sm">
                         {formatInr(q.unitPrice)}
@@ -229,7 +250,8 @@ export default function CommercialHubPage() {
                         <StatusChip status={q.status} />
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

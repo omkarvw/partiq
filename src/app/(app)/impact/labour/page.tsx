@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 
-/** Labour edits live under Impact → Machines → labour. */
+/** Labour edits live under Master data → Machines → labour. */
 export default function ImpactLabourRedirect() {
-  redirect("/impact/machines?tab=labour");
+  redirect("/master-data/machines?tab=labour");
 }

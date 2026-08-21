@@ -36,11 +36,15 @@ export function V2Field({
 
 export function V2Input({
   invalid,
+  required,
   ...props
 }: React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+  // Never set HTML required — browser bubbles break PartIq chrome; use V2Field error.
   return (
     <input
       {...props}
+      aria-required={required || undefined}
+      aria-invalid={invalid || undefined}
       className={`min-h-11 w-full rounded-sm border bg-surface-lowest px-3 text-body-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary ${
         invalid
           ? "border-error ring-1 ring-error/30"
@@ -52,12 +56,34 @@ export function V2Input({
 
 export function V2Select({
   invalid,
+  required,
   ...props
 }: React.SelectHTMLAttributes<HTMLSelectElement> & { invalid?: boolean }) {
   return (
     <select
       {...props}
+      aria-required={required || undefined}
+      aria-invalid={invalid || undefined}
       className={`min-h-11 w-full rounded-sm border bg-surface-lowest px-3 text-body-sm text-on-surface focus:border-primary ${
+        invalid
+          ? "border-error ring-1 ring-error/30"
+          : "border-outline-variant"
+      } ${props.className ?? ""}`}
+    />
+  );
+}
+
+export function V2Textarea({
+  invalid,
+  required,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
+  return (
+    <textarea
+      {...props}
+      aria-required={required || undefined}
+      aria-invalid={invalid || undefined}
+      className={`min-h-16 w-full rounded-sm border bg-surface-lowest px-3 py-2 text-body-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary ${
         invalid
           ? "border-error ring-1 ring-error/30"
           : "border-outline-variant"

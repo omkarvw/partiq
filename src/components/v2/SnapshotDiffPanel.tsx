@@ -105,7 +105,7 @@ export function SnapshotDiffPanel({
           </p>
           <div className="rounded-xl border border-outline-variant bg-surface-lowest p-3">
             <p className="mb-2 text-body-sm text-on-surface-variant">
-              Tap a row to open that section in Impact lab.
+              Tap a row to open that section in Master data.
             </p>
             <ImpactCascade steps={compare.cascade} linkToImpact />
           </div>

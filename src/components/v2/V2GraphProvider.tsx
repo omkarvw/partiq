@@ -16,6 +16,7 @@ import {
 import type { MachineInputs, MhrBreakup, PlantKpis } from "@/lib/factory/types";
 import { resolveVersionMhr } from "@/lib/factory/selectors";
 import { resolvePlantMachineId } from "@/lib/plant/machineBridge";
+import { clearImpactAudit } from "@/lib/v2/impactAudit";
 import {
   addMachinesOfType,
   applySnapshotToRecord,
@@ -42,6 +43,7 @@ import {
   type V2ClientRecord,
   type V2LabourRole,
   type V2MachineDraft,
+  type V2MaterialGrade,
   type V2OhLine,
   type V2PlantDraft,
   type V2ScenarioVersion,
@@ -76,6 +78,8 @@ type V2GraphValue = {
   setOverheadLines: (lines: V2OhLine[]) => void;
   upsertOverheadLine: (line: V2OhLine) => void;
   removeOverheadLine: (id: string) => void;
+  upsertMaterialGrade: (grade: V2MaterialGrade) => void;
+  removeMaterialGrade: (id: string) => void;
   upsertTypeToolingLine: (type: string, line: V2ToolingLine) => void;
   removeTypeToolingLine: (type: string, id: string) => void;
   setMachineToolingOverride: (
@@ -363,6 +367,32 @@ export function V2GraphProvider({ children }: { children: ReactNode }) {
     [persist],
   );
 
+  const upsertMaterialGrade = useCallback(
+    (grade: V2MaterialGrade) => {
+      persist((prev) => {
+        const list = prev.materialGrades ?? [];
+        const exists = list.some((g) => g.id === grade.id);
+        return {
+          ...prev,
+          materialGrades: exists
+            ? list.map((g) => (g.id === grade.id ? grade : g))
+            : [...list, grade],
+        };
+      });
+    },
+    [persist],
+  );
+
+  const removeMaterialGrade = useCallback(
+    (id: string) => {
+      persist((prev) => ({
+        ...prev,
+        materialGrades: (prev.materialGrades ?? []).filter((g) => g.id !== id),
+      }));
+    },
+    [persist],
+  );
+
   const upsertTypeToolingLine = useCallback(
     (type: string, line: V2ToolingLine) => {
       persist((prev) => {
@@ -474,6 +504,7 @@ export function V2GraphProvider({ children }: { children: ReactNode }) {
 
   const resetClient = useCallback(() => {
     clearClientRecord();
+    clearImpactAudit();
     setRecord(createEmptyClientRecord());
   }, []);
 
@@ -641,6 +672,8 @@ export function V2GraphProvider({ children }: { children: ReactNode }) {
       setOverheadLines,
       upsertOverheadLine,
       removeOverheadLine,
+      upsertMaterialGrade,
+      removeMaterialGrade,
       upsertTypeToolingLine,
       removeTypeToolingLine,
       setMachineToolingOverride,
@@ -681,6 +714,8 @@ export function V2GraphProvider({ children }: { children: ReactNode }) {
       setOverheadLines,
       upsertOverheadLine,
       removeOverheadLine,
+      upsertMaterialGrade,
+      removeMaterialGrade,
       upsertTypeToolingLine,
       removeTypeToolingLine,
       setMachineToolingOverride,

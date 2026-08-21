@@ -29,12 +29,14 @@ import {
   type V2BaselineSnapshot,
   type V2LabourRole,
   type V2MachineDraft,
+  type V2MaterialGrade,
   type V2OhLine,
   type V2PlantDraft,
   type V2Statutory,
   type V2ToolingLine,
 } from "@/lib/v2/clientDb";
 import { anyDirty, dirtyCount, dirtySections, moneyDirtySections } from "@/lib/v2/impactDirty";
+import { recordImpactCommit } from "@/lib/v2/impactAudit";
 
 type ImpactDraftValue = {
   baselineSnap: V2BaselineSnapshot;
@@ -73,11 +75,13 @@ type ImpactDraftValue = {
   setStatutory: (patch: Partial<V2Statutory>) => void;
   upsertOverheadLine: (line: V2OhLine) => void;
   removeOverheadLine: (id: string) => void;
+  upsertMaterialGrade: (grade: V2MaterialGrade) => void;
+  removeMaterialGrade: (id: string) => void;
   upsertToolingLine: (type: string, line: V2ToolingLine) => void;
   removeToolingLine: (type: string, id: string) => void;
   discard: () => void;
-  adoptAsBaseline: (name?: string, note?: string) => void;
-  saveAsScenario: (name: string, note?: string) => void;
+  adoptAsBaseline: (description?: string) => void;
+  saveAsScenario: (description?: string) => void;
   loadScenario: (id: string) => boolean;
   /** Re-seed draft from live plant (only when clean, or force). */
   syncFromLive: (force?: boolean) => void;
@@ -119,6 +123,7 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
   const {
     record,
     breakups: liveBreakups,
+    plantKpis: livePlantKpis,
     heroMachineId,
     adoptPlantSnapshot,
     saveScenario,
@@ -386,6 +391,26 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const upsertMaterialGrade = useCallback((grade: V2MaterialGrade) => {
+    setDraft((prev) => {
+      const list = prev.materialGrades ?? [];
+      const exists = list.some((g) => g.id === grade.id);
+      return {
+        ...prev,
+        materialGrades: exists
+          ? list.map((g) => (g.id === grade.id ? grade : g))
+          : [...list, grade],
+      };
+    });
+  }, []);
+
+  const removeMaterialGrade = useCallback((id: string) => {
+    setDraft((prev) => ({
+      ...prev,
+      materialGrades: (prev.materialGrades ?? []).filter((g) => g.id !== id),
+    }));
+  }, []);
+
   const upsertToolingLine = useCallback((type: string, line: V2ToolingLine) => {
     setDraft((prev) => {
       const list = prev.toolingProfiles[type] ?? [];
@@ -410,33 +435,75 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const plantLabel = () =>
+    draft.plant.name.trim() || record.plant.name.trim() || "Plant";
+
   const discard = useCallback(() => {
     const live = snapshotFromRecord(record);
+    recordImpactCommit({
+      action: "discard",
+      label: plantLabel(),
+      description: "Discarded exploration — live factory unchanged.",
+      live,
+      draft,
+      liveBlendedMhr: livePlantKpis?.blendedMhr ?? null,
+      draftBlendedMhr: draftComputed.draftPlantKpis?.blendedMhr ?? null,
+    });
     setBaselineSnap(live);
     setDraft(live);
     lastSyncedLiveKey.current = record.updatedAt;
-  }, [record]);
+  }, [record, draft, livePlantKpis?.blendedMhr, draftComputed.draftPlantKpis?.blendedMhr]);
 
   const adoptAsBaseline = useCallback(
-    (name?: string, note?: string) => {
-      const label =
-        name ||
-        `Impact · ${new Intl.DateTimeFormat("en-IN", {
-          day: "2-digit",
-          month: "short",
-        }).format(new Date())}`;
-      adoptPlantSnapshot(draft, label, note ?? "Adopted from Impact lab");
+    (description?: string) => {
+      const label = plantLabel();
+      const note = description?.trim() || undefined;
+      recordImpactCommit({
+        action: "adopt",
+        label,
+        description: note,
+        live: baselineSnap,
+        draft,
+        liveBlendedMhr: livePlantKpis?.blendedMhr ?? null,
+        draftBlendedMhr: draftComputed.draftPlantKpis?.blendedMhr ?? null,
+      });
+      adoptPlantSnapshot(draft, label, note);
       setBaselineSnap(structuredClone(draft));
       setDraft(structuredClone(draft));
     },
-    [adoptPlantSnapshot, draft],
+    [
+      adoptPlantSnapshot,
+      draft,
+      record.plant.name,
+      baselineSnap,
+      livePlantKpis?.blendedMhr,
+      draftComputed.draftPlantKpis?.blendedMhr,
+    ],
   );
 
   const saveAsScenario = useCallback(
-    (name: string, note?: string) => {
-      saveScenario(name, draft, note);
+    (description?: string) => {
+      const label = plantLabel();
+      const note = description?.trim() || undefined;
+      recordImpactCommit({
+        action: "scenario",
+        label,
+        description: note,
+        live: baselineSnap,
+        draft,
+        liveBlendedMhr: livePlantKpis?.blendedMhr ?? null,
+        draftBlendedMhr: draftComputed.draftPlantKpis?.blendedMhr ?? null,
+      });
+      saveScenario(label, draft, note);
     },
-    [saveScenario, draft],
+    [
+      saveScenario,
+      draft,
+      record.plant.name,
+      baselineSnap,
+      livePlantKpis?.blendedMhr,
+      draftComputed.draftPlantKpis?.blendedMhr,
+    ],
   );
 
   const loadScenario = useCallback(
@@ -481,6 +548,8 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
       setStatutory,
       upsertOverheadLine,
       removeOverheadLine,
+      upsertMaterialGrade,
+      removeMaterialGrade,
       upsertToolingLine,
       removeToolingLine,
       discard,
@@ -515,6 +584,8 @@ export function ImpactDraftProvider({ children }: { children: ReactNode }) {
       setStatutory,
       upsertOverheadLine,
       removeOverheadLine,
+      upsertMaterialGrade,
+      removeMaterialGrade,
       upsertToolingLine,
       removeToolingLine,
       discard,

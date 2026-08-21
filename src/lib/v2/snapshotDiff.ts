@@ -208,6 +208,40 @@ export function describeSnapshotChanges(
     }
   }
 
+  if (dirty.materials) {
+    const aById = new Map(
+      (reference.materialGrades ?? []).map((g) => [g.id, g]),
+    );
+    const bList = target.materialGrades ?? [];
+    for (const g of bList) {
+      const prev = aById.get(g.id);
+      if (!prev) {
+        lines.push({
+          section: "materials",
+          label: `Added grade “${g.name}”`,
+        });
+        continue;
+      }
+      if (
+        prev.rawRatePerKg !== g.rawRatePerKg ||
+        prev.scrapRatePerKg !== g.scrapRatePerKg ||
+        prev.name !== g.name
+      ) {
+        lines.push({
+          section: "materials",
+          label: `${g.name}: raw ${formatInr(prev.rawRatePerKg)}/kg → ${formatInr(g.rawRatePerKg)}/kg`,
+        });
+      }
+      aById.delete(g.id);
+    }
+    for (const g of aById.values()) {
+      lines.push({
+        section: "materials",
+        label: `Removed grade “${g.name}”`,
+      });
+    }
+  }
+
   if (dirty.machines) {
     if (reference.machines.length !== target.machines.length) {
       lines.push({
@@ -246,7 +280,7 @@ export function describeSnapshotChanges(
     if (machineFieldHits >= 8) {
       lines.push({
         section: "machines",
-        label: "…more machine field changes (open in Impact for full detail)",
+        label: "…more machine field changes (open in Master data for full detail)",
       });
     }
   }

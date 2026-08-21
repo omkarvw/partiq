@@ -95,14 +95,14 @@ export function CostCompositionPanel({
   }, [breakups, machineNames, open]);
 
   return (
-    <div className="rounded-xl border border-outline-variant bg-surface-lowest p-5 sm:p-6">
+    <div className="rounded-lg border border-outline-variant bg-surface-lowest p-5 sm:p-6">
       <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-on-surface-variant">
         Plant cost
       </p>
       <h3 className="mt-1 text-headline-sm text-on-surface">{title}</h3>
       <p className="mt-1 text-body-sm text-on-surface-variant">{subtitle}</p>
       <p className="mt-2 text-[11px] text-on-surface-variant">
-        Tap a row to see which machines drive it.
+        Tap a tile to see which machines drive it.
       </p>
 
       <div className="mt-4 flex flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -145,7 +145,7 @@ export function CostCompositionPanel({
         })}
       </div>
 
-      <ul className="mt-5 space-y-1">
+      <ul className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {HEADS.map((h) => {
           const value = composition[h.key] || 0;
           const month = value / 12;
@@ -156,12 +156,16 @@ export function CostCompositionPanel({
           return (
             <li
               key={h.key}
-              className="border-b border-outline-variant/50 last:border-0"
+              className={`rounded-lg border bg-surface ${
+                isOpen
+                  ? "border-primary/40 sm:col-span-2 xl:col-span-3"
+                  : "border-outline-variant/70"
+              }`}
             >
               <button
                 type="button"
                 onClick={() => setOpen(isOpen ? null : h.key)}
-                className="flex w-full items-baseline justify-between gap-3 py-2.5 text-left hover:bg-surface-low/80"
+                className="flex w-full items-start justify-between gap-3 p-3 text-left hover:bg-surface-low/80"
               >
                 <div className="flex min-w-0 items-start gap-2">
                   {isOpen ? (
@@ -178,7 +182,7 @@ export function CostCompositionPanel({
                     </p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="shrink-0 text-right">
                   <p className="font-mono text-body-sm tabular-nums text-on-surface">
                     {formatInr(value)}
                     <span className="text-on-surface-variant">/yr</span>
@@ -204,7 +208,7 @@ export function CostCompositionPanel({
               </button>
 
               {isOpen ? (
-                <div className="mb-3 ml-6 space-y-2 rounded-lg border border-outline-variant/60 bg-surface px-3 py-2">
+                <div className="space-y-2 border-t border-outline-variant/60 px-3 py-2.5">
                   {h.key === "utility" && utilityDetail?.length ? (
                     <div className="space-y-1 border-b border-outline-variant/50 pb-2">
                       <p className="font-mono text-[10px] uppercase tracking-wider text-on-surface-variant">
@@ -253,22 +257,24 @@ export function CostCompositionPanel({
                       No machine detail for this head yet.
                     </p>
                   ) : (
-                    machineRows.map((row) => (
-                      <div
-                        key={row.id}
-                        className="flex items-center justify-between gap-2 text-body-sm"
-                      >
-                        <Link
-                          href={`${drillHrefPrefix}/${row.id}`}
-                          className="font-medium text-primary hover:underline"
+                    <div className="grid gap-1.5 sm:grid-cols-2">
+                      {machineRows.map((row) => (
+                        <div
+                          key={row.id}
+                          className="flex items-center justify-between gap-2 text-body-sm"
                         >
-                          {row.name}
-                        </Link>
-                        <span className="font-mono tabular-nums text-right text-on-surface">
-                          {formatYrMo(row.amount)}
-                        </span>
-                      </div>
-                    ))
+                          <Link
+                            href={`${drillHrefPrefix}/${row.id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            {row.name}
+                          </Link>
+                          <span className="font-mono tabular-nums text-right text-on-surface">
+                            {formatYrMo(row.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               ) : null}

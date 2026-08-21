@@ -16,14 +16,15 @@ export function ProcessRowLiveCost({
   timeUnit: "minutes" | "seconds";
   versionNumber: number;
 }) {
-  const { resolveMhr } = useV2Graph();
+  const { resolveMhr, getMachine, resolveMachineId } = useV2Graph();
+  const liveId = resolveMachineId(machineId);
+  const machine = liveId ? getMachine(liveId) : undefined;
   const mhr = resolveMhr(fallbackMhr, machineId);
   const cost = calcCost(mhr, timeActual, timeUnit);
   return (
     <p className="mt-2 font-mono text-code-sm text-on-surface-variant">
-      v{versionNumber} current · MHR {formatInr(mhr)}/hr
-      {machineId ? " (from plant)" : ""} · Cost {formatInr(cost)} · unit{" "}
-      {timeUnit}
+      v{versionNumber} · {machine ? machine.name : "No factory machine"} · MHR{" "}
+      {formatInr(mhr)}/hr · Cost {formatInr(cost)}
     </p>
   );
 }

@@ -72,16 +72,16 @@ export default function V2MachinePage({
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            href={`/impact/machines?machine=${machine.id}&type=${encodeURIComponent(machine.type)}`}
+            href={`/master-data/machines?machine=${machine.id}&type=${encodeURIComponent(machine.type)}`}
             className="inline-flex min-h-11 items-center rounded-lg border border-outline-variant px-4 text-body-sm font-medium text-on-surface hover:bg-surface-low"
           >
-            Impact · Machines
+            Master data · Machines
           </Link>
           <Link
-            href={`/impact/machines?tab=labour&type=${encodeURIComponent(machine.type)}`}
+            href={`/master-data/machines?tab=labour&type=${encodeURIComponent(machine.type)}`}
             className="inline-flex min-h-11 items-center rounded-lg border border-outline-variant px-4 text-body-sm font-medium text-on-surface hover:bg-surface-low"
           >
-            Impact · Labour
+            Master data · Labour
           </Link>
           <Button variant="secondary" onClick={() => setShowTable((v) => !v)}>
             {showTable ? "Hide table" : "Show explain table"}

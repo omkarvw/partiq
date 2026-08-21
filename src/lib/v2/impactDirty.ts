@@ -80,10 +80,11 @@ export function sectionSlices(snap: V2BaselineSnapshot) {
     },
     overhead: snap.overheadLines,
     tooling: snap.toolingProfiles,
+    materials: snap.materialGrades ?? [],
   };
 }
 
-/** Cost-affecting slices only — section moves / renames do not light yellow. */
+/** Cost-affecting slices — MHR drivers + material rates (part cost). */
 export function moneySectionSlices(snap: V2BaselineSnapshot) {
   return {
     plant: {
@@ -103,6 +104,7 @@ export function moneySectionSlices(snap: V2BaselineSnapshot) {
     },
     overhead: snap.overheadLines,
     tooling: snap.toolingProfiles,
+    materials: snap.materialGrades ?? [],
   };
 }
 
@@ -119,10 +121,11 @@ export function dirtySections(
     labour: stableStringify(a.labour) !== stableStringify(b.labour),
     overhead: stableStringify(a.overhead) !== stableStringify(b.overhead),
     tooling: stableStringify(a.tooling) !== stableStringify(b.tooling),
+    materials: stableStringify(a.materials) !== stableStringify(b.materials),
   };
 }
 
-/** Yellow indicators / “cost area changed” — only when ₹/hr inputs move. */
+/** Yellow indicators — any Master data change that moves MHR or part cost. */
 export function moneyDirtySections(
   baseline: V2BaselineSnapshot,
   draft: V2BaselineSnapshot,
@@ -136,6 +139,7 @@ export function moneyDirtySections(
     labour: stableStringify(a.labour) !== stableStringify(b.labour),
     overhead: stableStringify(a.overhead) !== stableStringify(b.overhead),
     tooling: stableStringify(a.tooling) !== stableStringify(b.tooling),
+    materials: stableStringify(a.materials) !== stableStringify(b.materials),
   };
 }
 

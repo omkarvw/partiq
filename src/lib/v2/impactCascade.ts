@@ -1,14 +1,14 @@
 import type { ImpactStep, MhrBreakup } from "@/lib/factory/types";
 
-/** Cascade step → Impact lab sub-screen. */
+/** Cascade step → Master data sub-screen. */
 export const CASCADE_STEP_HREF: Record<string, string> = {
-  "emi-hr": "/impact/machines",
-  "labour-hr": "/impact/machines?tab=labour",
-  "utility-hr": "/impact/utilities",
-  "maint-hr": "/impact/machines",
-  "oh-hr": "/impact/overhead",
-  "tooling-hr": "/impact/tooling",
-  "manufacturing-mhr": "/impact",
+  "emi-hr": "/master-data/machines",
+  "labour-hr": "/master-data/machines?tab=labour",
+  "utility-hr": "/master-data/utilities",
+  "maint-hr": "/master-data/machines",
+  "oh-hr": "/master-data/overhead",
+  "tooling-hr": "/master-data/tooling",
+  "manufacturing-mhr": "/master-data",
 };
 
 export function cascadeStepHref(stepId: string): string | null {

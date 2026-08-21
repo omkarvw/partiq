@@ -16,6 +16,7 @@ import { buildMachineCascade } from "@/lib/v2/impactCascade";
 import { formatInr } from "@/lib/costing";
 import { CostCompositionPanel } from "@/components/plant/CostCompositionPanel";
 import { useV2Graph } from "@/components/v2/V2GraphProvider";
+import { PartCostImpactPanel } from "@/components/v2/PartCostImpactPanel";
 import {
   AnimatedNumber,
   EASE,
@@ -93,16 +94,26 @@ export default function ImpactOverviewPage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.location.hash !== "#decision-cascade") return;
+    const hash = window.location.hash;
+    const id =
+      hash === "#part-cost-impact"
+        ? "part-cost-impact"
+        : hash === "#decision-cascade"
+          ? "decision-cascade"
+          : null;
+    if (!id) return;
     requestAnimationFrame(() => {
-      document
-        .getElementById("decision-cascade")
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById(id)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   }, []);
 
   return (
     <div className="space-y-6">
+      {moneyDirty.materials ? <PartCostImpactPanel /> : null}
+
       <Reveal className="grid gap-3 lg:grid-cols-[320px_1fr]">
         <div className="card-surface h-fit rounded-xl border border-outline-variant p-5">
           <h3 className="text-headline-sm text-on-surface">Quick levers</h3>

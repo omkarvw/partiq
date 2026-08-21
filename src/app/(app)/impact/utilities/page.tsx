@@ -191,7 +191,7 @@ export default function ImpactUtilitiesPage() {
           <p className="mt-4 text-body-sm text-on-surface-variant">
             No machines in this what-if yet.{" "}
             <Link
-              href="/impact/machines"
+              href="/master-data/machines"
               className="text-primary hover:underline"
             >
               Add a machine

@@ -23,6 +23,7 @@ export function DataTable<T extends RowData>({
   data,
   columns,
   getRowId,
+  getRowClassName,
   minWidth = 880,
   empty,
   dense = false,
@@ -32,6 +33,8 @@ export function DataTable<T extends RowData>({
   data: T[];
   columns: PlantColumnDef<T>[];
   getRowId?: (row: T, index: number) => string;
+  /** Extra row classes (e.g. risk / inactive tint). */
+  getRowClassName?: (row: T) => string | undefined;
   minWidth?: number;
   empty?: string;
   /** Tighter padding for editable forms (labour, tooling, …). */
@@ -108,7 +111,9 @@ export function DataTable<T extends RowData>({
             table.getRowModel().rows.map((row) => (
               <tr
                 key={row.id}
-                className="border-t border-outline-variant/70 hover:bg-surface-low/40"
+                className={`border-t border-outline-variant/70 hover:bg-surface-low/40 ${
+                  getRowClassName?.(row.original) ?? ""
+                }`}
               >
                 {row.getAllCells().map((cell) => (
                   <td

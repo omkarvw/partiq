@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { FileText, FolderOpen, Handshake, Plus } from "lucide-react";
+import { FileText, FolderOpen, Handshake, Plus, Users } from "lucide-react";
 import {
   getCommercialSummaryForPart,
   getCurrentVersion,
@@ -18,6 +19,9 @@ import {
 import { PartLiveCostBanner } from "@/components/demo/PartLiveCostBanner";
 import { ProcessRowLiveCost } from "@/components/demo/ProcessRowLiveCost";
 import { PartStatusToggle } from "@/components/commercial/EntityStatusToggle";
+import { PartMaterialPanel } from "@/components/commercial/PartMaterialPanel";
+import { AddProcessModal } from "@/components/ui/Modals";
+import { CreateEnquiryModal } from "@/components/ui/CommercialModals";
 import {
   EntityLoading,
   EntityMissing,
@@ -29,12 +33,21 @@ export default function PartDetailPage() {
   const params = useParams<{ partId: string }>();
   const ready = useOverlayReady(params.partId);
   const part = usePart(params.partId);
+  const [addProcessOpen, setAddProcessOpen] = useState(false);
+  const [enquiryOpen, setEnquiryOpen] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  const commercial = useMemo(() => {
+    void tick;
+    if (!part) return null;
+    return getCommercialSummaryForPart(part.id);
+  }, [part, tick]);
+
   if (!ready) return <EntityLoading />;
-  if (!part) {
+  if (!part || !commercial) {
     return <EntityMissing label="Part not found" />;
   }
 
-  const commercial = getCommercialSummaryForPart(part.id);
   const byDateDesc = <T extends { createdAt?: string; respondedAt?: string }>(
     a: T,
     b: T,
@@ -46,6 +59,15 @@ export default function PartDetailPage() {
   const latestEnquiry = [...commercial.enquiries].sort(byDateDesc)[0];
   const latestQuote = [...commercial.quotations].sort(byDateDesc)[0];
   const latestResponse = [...commercial.responses].sort(byDateDesc)[0];
+
+  const buyers = (() => {
+    const map = new Map<string, string>();
+    map.set(part.customerId, part.customer);
+    for (const e of commercial.enquiries) {
+      map.set(e.customerId, e.customer);
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  })();
 
   let estTotalSec = 0;
   let actTotalSec = 0;
@@ -66,6 +88,10 @@ export default function PartDetailPage() {
         </div>
         <div className="flex flex-wrap gap-2">
           <PartStatusToggle partId={part.id} />
+          <Button variant="secondary" onClick={() => setEnquiryOpen(true)}>
+            <Users className="h-4 w-4" />
+            Quote another customer
+          </Button>
           <Link href={`/parts/${part.id}/commercial`}>
             <Button variant="secondary">
               <Handshake className="h-4 w-4" />
@@ -78,7 +104,6 @@ export default function PartDetailPage() {
               Files hub
             </Button>
           </Link>
-          <Button variant="secondary">Edit Details</Button>
         </div>
       </div>
 
@@ -108,7 +133,11 @@ export default function PartDetailPage() {
             {part.processes.length === 0 ? (
               <div className="p-8 text-center">
                 <p className="text-body-md text-on-surface-variant">No processes yet.</p>
-                <Button className="mt-4" variant="secondary">
+                <Button
+                  className="mt-4"
+                  variant="secondary"
+                  onClick={() => setAddProcessOpen(true)}
+                >
                   <Plus className="h-4 w-4" />
                   Add Process Step
                 </Button>
@@ -166,7 +195,8 @@ export default function PartDetailPage() {
                 <div className="border-t border-outline-variant p-4">
                   <button
                     type="button"
-                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded border border-dashed border-outline py-2 text-body-md font-medium text-secondary transition-colors hover:border-primary hover:text-primary"
+                    onClick={() => setAddProcessOpen(true)}
+                    className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-sm border border-dashed border-outline py-2 text-body-md font-medium text-secondary transition-colors hover:border-primary hover:text-primary"
                   >
                     <Plus className="h-4 w-4" />
                     Add Process Step
@@ -175,25 +205,81 @@ export default function PartDetailPage() {
               </div>
             )}
           </Panel>
+          <div className="mt-4">
+            <PartMaterialPanel part={part} />
+          </div>
         </div>
 
         <div className="flex flex-col gap-4">
           <Panel title="Part Specifications">
             <SpecRow label="Material" value={part.material} />
-            <div className="flex items-center border-b border-outline-variant/30 px-4 py-2">
-              <div className="label-caps w-24 shrink-0 pr-4 text-right text-secondary">
-                Customer
+            <div className="flex items-start border-b border-outline-variant/30 px-4 py-2">
+              <div className="label-caps w-24 shrink-0 pr-4 pt-0.5 text-right text-secondary">
+                Primary
               </div>
-              <Link
-                href={`/customers/${part.customerId}`}
-                className="flex-1 text-body-md text-primary hover:underline"
-              >
-                {part.customer}
-              </Link>
+              <div className="min-w-0 flex-1">
+                <Link
+                  href={`/customers/${part.customerId}`}
+                  className="text-body-md text-primary hover:underline"
+                >
+                  {part.customer}
+                </Link>
+                <p className="mt-0.5 text-[11px] text-on-surface-variant">
+                  Master link. Other buyers are added via RFQ / enquiry.
+                </p>
+              </div>
             </div>
             <div className="flex items-center px-4 py-2">
               <div className="label-caps w-24 shrink-0 pr-4 text-right text-secondary">Status</div>
               <StatusChip status={part.status} />
+            </div>
+          </Panel>
+
+          <Panel
+            title="Buyers on this part"
+            action={
+              <button
+                type="button"
+                onClick={() => setEnquiryOpen(true)}
+                className="text-body-sm font-medium text-primary hover:underline"
+              >
+                + RFQ
+              </button>
+            }
+          >
+            <ul className="divide-y divide-outline-variant/40">
+              {buyers.map((b) => {
+                const rfqCount = commercial.enquiries.filter(
+                  (e) => e.customerId === b.id,
+                ).length;
+                const isPrimary = b.id === part.customerId;
+                return (
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between gap-2 px-4 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <Link
+                        href={`/customers/${b.id}`}
+                        className="block truncate text-body-sm font-medium text-primary hover:underline"
+                      >
+                        {b.name}
+                      </Link>
+                      <p className="text-[11px] text-on-surface-variant">
+                        {isPrimary ? "Primary" : "Via enquiry"}
+                        {rfqCount > 0 ? ` · ${rfqCount} RFQ` : ""}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="border-t border-outline-variant/50 px-4 py-3">
+              <p className="text-[11px] text-on-surface-variant">
+                Quote another customer: new RFQ (pick buyer) → quotation with
+                that unit price. Live part cost stays shared; margin is per
+                quote.
+              </p>
             </div>
           </Panel>
 
@@ -238,6 +324,7 @@ export default function PartDetailPage() {
                   >
                     {latestEnquiry.reference}
                   </Link>{" "}
+                  · {latestEnquiry.customer}{" "}
                   <StatusChip status={latestEnquiry.status} />
                 </p>
               ) : (
@@ -286,7 +373,7 @@ export default function PartDetailPage() {
                   <div>
                     <p className="font-mono text-code-md text-on-surface">{f.name}</p>
                     <p className="text-[11px] text-secondary">
-                      {f.kind.toUpperCase()} · {f.sizeLabel}
+                      {f.kind.toUpperCase()} ┬╖ {f.sizeLabel}
                     </p>
                   </div>
                 </div>
@@ -298,6 +385,23 @@ export default function PartDetailPage() {
           </Panel>
         </div>
       </div>
+      {addProcessOpen ? (
+        <AddProcessModal
+          open
+          partId={part.id}
+          onClose={() => setAddProcessOpen(false)}
+        />
+      ) : null}
+      {enquiryOpen ? (
+        <CreateEnquiryModal
+          open
+          partId={part.id}
+          onClose={() => {
+            setEnquiryOpen(false);
+            setTick((t) => t + 1);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

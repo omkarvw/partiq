@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useDemoGraph } from "@/components/demo/DemoGraphProvider";
 import { Button } from "@/components/ui/Primitives";
+import { V2Field, V2Input } from "@/components/v2/V2Ui";
 import type { BaselineChange } from "@/lib/factory/types";
 
 function formatChangeValue(value: string | number, unit?: string) {
@@ -62,6 +63,7 @@ export function BaselineAdoption() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [note, setNote] = useState("");
+  const [attempted, setAttempted] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -81,11 +83,14 @@ export function BaselineAdoption() {
       }).format(new Date())}`,
     );
     setNote("");
+    setAttempted(false);
     setOpen(true);
   }
 
   function handleAdopt(event: FormEvent) {
     event.preventDefault();
+    setAttempted(true);
+    if (!name.trim()) return;
     if (adoptBaseline(name, note)) setOpen(false);
   }
 
@@ -178,7 +183,7 @@ export function BaselineAdoption() {
               exit={{ opacity: 0, scale: 0.99, y: 6 }}
               transition={{ duration: reducedMotion ? 0 : 0.2 }}
             >
-              <form onSubmit={handleAdopt}>
+              <form noValidate onSubmit={handleAdopt}>
                 <div className="flex items-start justify-between gap-4 border-b border-outline-variant p-5">
                   <div>
                     <h2
@@ -204,29 +209,27 @@ export function BaselineAdoption() {
 
                 <div className="space-y-5 p-5">
                   <div className="grid gap-4 sm:grid-cols-2">
-                    <label>
-                      <span className="label-caps mb-1.5 block text-on-surface-variant">
-                        Baseline name
-                      </span>
-                      <input
+                    <V2Field
+                      label="Baseline name"
+                      required
+                      error={
+                        attempted && !name.trim() ? "Required" : null
+                      }
+                    >
+                      <V2Input
                         autoFocus
-                        required
+                        invalid={attempted && !name.trim()}
                         value={name}
                         onChange={(event) => setName(event.target.value)}
-                        className="min-h-11 w-full rounded-sm border border-outline-variant bg-surface-low px-3 text-body-sm text-on-surface focus:border-primary"
                       />
-                    </label>
-                    <label>
-                      <span className="label-caps mb-1.5 block text-on-surface-variant">
-                        Reason / note
-                      </span>
-                      <input
+                    </V2Field>
+                    <V2Field label="Reason / note">
+                      <V2Input
                         value={note}
                         onChange={(event) => setNote(event.target.value)}
                         placeholder="e.g. Tariff revision effective August"
-                        className="min-h-11 w-full rounded-sm border border-outline-variant bg-surface-low px-3 text-body-sm text-on-surface placeholder:text-on-surface-variant focus:border-primary"
                       />
-                    </label>
+                    </V2Field>
                   </div>
 
                   <div>

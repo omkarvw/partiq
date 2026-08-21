@@ -72,13 +72,13 @@ export default function V2DashboardPage() {
           </h2>
           <p className="mt-2 max-w-2xl text-body-md text-on-surface-variant">
             Built from your onboarding inputs in {record.plant.city}. Every KPI
-            below is derived from what you entered — change something in Impact
-            and watch these move.
+            below is derived from what you entered — change something in Master
+            data and watch these move.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link href="/impact" className="press">
+            <Link href="/master-data" className="press">
               <V2PrimaryButton>
-                Open impact lab
+                Open Master data
                 <ArrowUpRight className="h-4 w-4" />
               </V2PrimaryButton>
             </Link>
